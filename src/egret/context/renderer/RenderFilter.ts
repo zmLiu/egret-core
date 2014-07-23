@@ -25,13 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../MainContext.ts"/>
-/// <reference path="RendererContext.ts"/>
-/// <reference path="../../display/Texture.ts"/>
-/// <reference path="../../geom/Matrix.ts"/>
-/// <reference path="../../geom/Rectangle.ts"/>
-/// <reference path="../../utils/HashObject.ts"/>
-/// <reference path="../../utils/Logger.ts"/>
 
 module egret {
     /**
@@ -79,94 +72,6 @@ module egret {
         }
 
         /**
-         * 绘制平铺位图
-         */
-        public drawRepeatImage(renderContext:RendererContext, data:RenderData, destWidth:number, destHeight:number):void {
-            var texture:Texture = data._texture_to_render;
-            if (!texture) {
-                return;
-            }
-            var sourceX:number = texture._startX;
-            var sourceY:number = texture._startY;
-            var sourceWidth:number = texture._textureWidth;
-            var sourceHeight:number = texture._textureHeight;
-            var destX:number = texture._offsetX;
-            var destY:number = texture._offsetY;
-
-            for (var x:number = destX; x < destWidth; x += sourceWidth) {
-                for (var y:number = destY; y < destHeight; y += sourceHeight) {
-                    var destW:number = Math.min(sourceWidth, destWidth - x);
-                    var destH:number = Math.min(sourceHeight, destHeight - y);
-                    this.drawImage(renderContext, data, sourceX, sourceY, sourceWidth, sourceHeight, x, y, destW, destH);
-                }
-            }
-        }
-
-        /**
-         * 绘制九宫格位图
-         */
-        public drawScale9GridImage(renderContext:RendererContext, data:RenderData, scale9Grid:Rectangle, destWidth:number, destHeight:number):void {
-
-            var texture:Texture = data._texture_to_render;
-            if (!texture || !scale9Grid) {
-                return;
-            }
-            var sourceX:number = texture._startX;
-            var sourceY:number = texture._startY;
-            var sourceWidth:number = texture._textureWidth;
-            var sourceHeight:number = texture._textureHeight;
-            var destX:number = texture._offsetX;
-            var destY:number = texture._offsetY;
-            var roundedDrawX:number = Math.round(destX * destWidth / sourceWidth);
-            var roundedDrawY:number = Math.round(destY * destHeight / sourceHeight);
-            var s9g:Rectangle = Rectangle.identity.initialize(
-                scale9Grid.x - Math.round(destX), scale9Grid.y - Math.round(destX),
-                scale9Grid.width, scale9Grid.height);
-            if (sourceWidth - s9g.width > destWidth || sourceHeight - s9g.height > destHeight) {
-
-                this.drawImage(renderContext, data, sourceX, sourceY, sourceWidth, sourceHeight,
-                    roundedDrawX, roundedDrawY, destWidth, destHeight)
-                return;
-            }
-
-            //防止空心的情况出现。
-            if (s9g.y == s9g.bottom) {
-                if (s9g.bottom < sourceHeight)
-                    s9g.bottom++;
-                else
-                    s9g.y--;
-            }
-            if (s9g.x == s9g.right) {
-                if (s9g.right < sourceWidth)
-                    s9g.right++;
-                else
-                    s9g.x--;
-            }
-
-            var sourceX2:number = sourceX + s9g.x;
-            var sourceX3:number = sourceX + s9g.right;
-            var sourceRightW:number = sourceWidth - s9g.right;
-            var sourceY2:number = sourceY + s9g.y;
-            var sourceY3:number = sourceY + s9g.bottom;
-            var sourceBottomH:number = sourceHeight - s9g.bottom
-
-            var destX1:number = roundedDrawX + s9g.x;
-            var destScaleGridBottom:number = destHeight - (sourceHeight - s9g.bottom);
-            var destScaleGridRight:number = destWidth - (sourceWidth - s9g.right);
-
-
-            this.drawImage(renderContext, data, sourceX, sourceY, s9g.x, s9g.y, roundedDrawX, 0, s9g.x, s9g.y);
-            this.drawImage(renderContext, data, sourceX2, sourceY, s9g.width, s9g.y, destX1, 0, destScaleGridRight - s9g.x, s9g.y);
-            this.drawImage(renderContext, data, sourceX3, sourceY, sourceRightW, s9g.y, roundedDrawX + destScaleGridRight, 0, destWidth - destScaleGridRight, s9g.y);
-            this.drawImage(renderContext, data, sourceX, sourceY2, s9g.x, s9g.height, roundedDrawX, s9g.y, s9g.x, destScaleGridBottom - s9g.y);
-            this.drawImage(renderContext, data, sourceX2, sourceY2, s9g.width, s9g.height, destX1, s9g.y, destScaleGridRight - s9g.x, destScaleGridBottom - s9g.y);
-            this.drawImage(renderContext, data, sourceX3, sourceY2, sourceRightW, s9g.height, roundedDrawX + destScaleGridRight, s9g.y, destWidth - destScaleGridRight, destScaleGridBottom - s9g.y);
-            this.drawImage(renderContext, data, sourceX, sourceY3, s9g.x, sourceBottomH, roundedDrawX, destScaleGridBottom, s9g.x, destHeight - destScaleGridBottom);
-            this.drawImage(renderContext, data, sourceX2, sourceY3, s9g.width, sourceBottomH, destX1, destScaleGridBottom, destScaleGridRight - s9g.x, destHeight - destScaleGridBottom);
-            this.drawImage(renderContext, data, sourceX3, sourceY3, sourceRightW, sourceBottomH, roundedDrawX + destScaleGridRight, destScaleGridBottom, destWidth - destScaleGridRight, destHeight - destScaleGridBottom);
-        }
-
-        /**
          * 先检查有没有不需要绘制的区域，再把需要绘制的区域绘制出来
          * @method egret.egret#drawImage
          * @param renderContext {any}
@@ -185,6 +90,10 @@ module egret {
             destY = destY || 0;
             var locTexture = data._texture_to_render;
             if (locTexture == null || sourceHeight == 0 || sourceWidth == 0 || destWidth == 0 || destHeight == 0) {
+                return;
+            }
+            if (!data._worldBounds){
+                renderContext.drawImage(locTexture, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
                 return;
             }
             var originalData = this._originalData;
@@ -207,42 +116,42 @@ module egret {
                 //在设置过重绘区域时算出不需要绘制的区域
                 if (this._drawAreaList.length != 0) {
                     //不能允许有旋转和斜切的显示对象跨过重绘区域
-                    if (data.worldTransform.b != 0 || data.worldTransform.c != 0) {
+                    if (data._worldTransform.b != 0 || data._worldTransform.c != 0) {
                         //之前已经判断过是否出了重绘区域了
-                        if (data.worldBounds.x + originalData.destX < drawArea.x
-                            || data.worldBounds.y + originalData.destY < drawArea.y
-                            || data.worldBounds.x + data.worldBounds.width + originalData.destX > drawArea.x + drawArea.width
-                            || data.worldBounds.y + data.worldBounds.height + originalData.destY > drawArea.y + drawArea.height) {
+                        if (data._worldBounds.x + originalData.destX < drawArea.x
+                            || data._worldBounds.y + originalData.destY < drawArea.y
+                            || data._worldBounds.x + data._worldBounds.width + originalData.destX > drawArea.x + drawArea.width
+                            || data._worldBounds.y + data._worldBounds.height + originalData.destY > drawArea.y + drawArea.height) {
                             egret.Logger.fatal("请不要让带有旋转和斜切的显示对象跨过重绘区域");
                             return;
                         }
                     }
                     else {
                         //因为有旋转和斜切时候不允许跨过重绘区域，所以缩放属性可以直接这么取
-                        var scaleX = data.worldTransform.a;
-                        var scaleY = data.worldTransform.d;
+                        var scaleX = data._worldTransform.a;
+                        var scaleY = data._worldTransform.d;
                         var offset;
-                        if (data.worldBounds.x + originalData.destX < drawArea.x) {
-                            offset = (drawArea.x - data.worldBounds.x) / scaleX - originalData.destX;
+                        if (data._worldBounds.x + originalData.destX < drawArea.x) {
+                            offset = (drawArea.x - data._worldBounds.x) / scaleX - originalData.destX;
                             sourceX += offset / (destWidth / sourceWidth);
                             sourceWidth -= offset / (destWidth / sourceWidth);
                             destWidth -= offset;
                             destX += offset;
                         }
-                        if (data.worldBounds.y + originalData.destY < drawArea.y) {
-                            offset = (drawArea.y - data.worldBounds.y) / scaleY - originalData.destY;
+                        if (data._worldBounds.y + originalData.destY < drawArea.y) {
+                            offset = (drawArea.y - data._worldBounds.y) / scaleY - originalData.destY;
                             sourceY += offset / (destHeight / sourceHeight);
                             sourceHeight -= offset / (destHeight / sourceHeight);
                             destHeight -= offset;
                             destY += offset;
                         }
-                        if (data.worldBounds.x + data.worldBounds.width + originalData.destX > drawArea.x + drawArea.width) {
-                            offset = (data.worldBounds.x + data.worldBounds.width - drawArea.x - drawArea.width) / scaleX + originalData.destX;
+                        if (data._worldBounds.x + data._worldBounds.width + originalData.destX > drawArea.x + drawArea.width) {
+                            offset = (data._worldBounds.x + data._worldBounds.width - drawArea.x - drawArea.width) / scaleX + originalData.destX;
                             sourceWidth -= offset / (destWidth / sourceWidth);
                             destWidth -= offset;
                         }
-                        if (data.worldBounds.y + data.worldBounds.height + originalData.destY > drawArea.y + drawArea.height) {
-                            offset = (data.worldBounds.y + data.worldBounds.height - drawArea.y - drawArea.height) / scaleY + originalData.destY;
+                        if (data._worldBounds.y + data._worldBounds.height + originalData.destY > drawArea.y + drawArea.height) {
+                            offset = (data._worldBounds.y + data._worldBounds.height - drawArea.y - drawArea.height) / scaleY + originalData.destY;
                             sourceHeight -= offset / (destHeight / sourceHeight);
                             destHeight -= offset;
                         }
@@ -258,9 +167,9 @@ module egret {
         }
 
         private ignoreRender(data:RenderData, rect:egret.Rectangle, destX:number, destY:number):boolean {
-            var bounds = data.worldBounds;
-            var destX = destX * data.worldTransform.a;
-            var destY = destY * data.worldTransform.d;
+            var bounds = data._worldBounds;
+            var destX = destX * data._worldTransform.a;
+            var destY = destY * data._worldTransform.d;
             if (bounds.x + bounds.width + destX <= rect.x || bounds.x + destX >= rect.x + rect.width
                 || bounds.y + bounds.height + destY <= rect.y || bounds.y + destY >= rect.y + rect.height) {
                 return true;
@@ -298,11 +207,11 @@ module egret {
         /**
          * @member egret.RenderData#worldTransform
          */
-            worldTransform:egret.Matrix;
+            _worldTransform:egret.Matrix;
         /**
          * @member egret.RenderData#worldBounds
          */
-            worldBounds:egret.Rectangle;
+            _worldBounds:egret.Rectangle;
         _texture_to_render:egret.Texture;
     }
 }

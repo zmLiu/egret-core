@@ -25,18 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../../../egret/display/DisplayObject.ts"/>
-/// <reference path="../../../egret/display/DisplayObjectContainer.ts"/>
-/// <reference path="../../../egret/utils/Injector.ts"/>
-/// <reference path="supportClasses/DefaultSkinAdapter.ts"/>
-/// <reference path="supportClasses/SkinBasicLayout.ts"/>
-/// <reference path="../core/ILayoutElement.ts"/>
-/// <reference path="../core/ISkin.ts"/>
-/// <reference path="../core/ISkinAdapter.ts"/>
-/// <reference path="../core/IStateClient.ts"/>
-/// <reference path="../core/UIComponent.ts"/>
-/// <reference path="../events/SkinPartEvent.ts"/>
-/// <reference path="../events/UIEvent.ts"/>
 
 module egret {
 
@@ -50,7 +38,7 @@ module egret {
 	 * 请覆盖partAdded()和partRemoved()方法
 	 * @extends egret.SkinnableComponent
 	 */
-	export class SkinnableComponent extends UIComponent{
+	export class SkinnableComponent extends UIComponent implements ISkinnableClient{
 		/**
 		 * 构造函数
 		 * @method egret.SkinnableComponent#constructor
@@ -471,7 +459,7 @@ module egret {
                 if ("setLayoutBoundsSize" in skin) {
                     (<ILayoutElement><any> (skin)).setLayoutBoundsSize(unscaledWidth, unscaledHeight);
                 }
-                else {
+                else if(skin instanceof DisplayObject){
                     skin.scaleX = skin.width==0?1:unscaledWidth/skin.width;
                     skin.scaleY = skin.height==0?1:unscaledHeight/skin.height;
                 }

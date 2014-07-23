@@ -25,15 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../../../egret/display/DisplayObject.ts"/>
-/// <reference path="../../../egret/display/DisplayObjectContainer.ts"/>
-/// <reference path="../../../egret/events/Event.ts"/>
-/// <reference path="../../../egret/events/EventDispatcher.ts"/>
-/// <reference path="RadioButton.ts"/>
-/// <reference path="../core/IVisualElement.ts"/>
-/// <reference path="../core/IVisualElementContainer.ts"/>
-/// <reference path="../core/UIComponent.ts"/>
-/// <reference path="../events/UIEvent.ts"/>
 
 module egret {
 
@@ -156,7 +147,7 @@ module egret {
 			instance.addEventListener(Event.REMOVED, this.radioButton_removedHandler, this);
 			
 			this.radioButtons.push(instance);
-			this.radioButtons.sort(this.breadthOrderCompare);
+			this.radioButtons.sort(breadthOrderCompare);
 			for (var i:number = 0; i < this.radioButtons.length; i++)
 				this.radioButtons[i]._indexNumber = i;
 			if (this._selectedValue)
@@ -168,6 +159,41 @@ module egret {
 			instance.invalidateSkinState();
 			
 			this.dispatchEventWith("numRadioButtonsChanged");
+
+            function breadthOrderCompare(a:DisplayObject, b:DisplayObject):number{
+                var aParent:DisplayObjectContainer = a.parent;
+                var bParent:DisplayObjectContainer = b.parent;
+
+                if (!aParent || !bParent)
+                    return 0;
+
+                var aNestLevel:number = (a instanceof UIComponent) ? (<UIComponent><any> a).nestLevel : -1;
+                var bNestLevel:number = (b instanceof UIComponent) ? (<UIComponent><any> b).nestLevel : -1;
+
+                var aIndex:number = 0;
+                var bIndex:number = 0;
+
+                if (aParent == bParent){
+                    if ("getElementIndex" in aParent && "ownerChanged" in a)
+                        aIndex = (<IVisualElementContainer><any> aParent).getElementIndex(<IVisualElement><any> a);
+                    else
+                        aIndex = (<DisplayObjectContainer><any> aParent).getChildIndex(a);
+
+                    if ("getElementIndex" in bParent &&"ownerChanged" in b)
+                        bIndex = (<IVisualElementContainer><any> bParent).getElementIndex(<IVisualElement><any> b);
+                    else
+                        bIndex = (<DisplayObjectContainer><any> bParent).getChildIndex(b);
+                }
+
+                if (aNestLevel > bNestLevel || aIndex > bIndex)
+                    return 1;
+                else if (aNestLevel < bNestLevel ||  bIndex > aIndex)
+                    return -1;
+                else if (a == b)
+                    return 0;
+                else
+                    return breadthOrderCompare(aParent, bParent);
+            }
 		}
 		/**
 		 * 从组里移除单选按钮
@@ -253,43 +279,7 @@ module egret {
 			}
 		}
 		
-		/**
-		 * 显示对象深度排序
-		 */		
-		private breadthOrderCompare(a:DisplayObject, b:DisplayObject):number{
-			var aParent:DisplayObjectContainer = a.parent;
-			var bParent:DisplayObjectContainer = b.parent;
-			
-			if (!aParent || !bParent)
-				return 0;
-			
-			var aNestLevel:number = (a instanceof UIComponent) ? (<UIComponent><any> a).nestLevel : -1;
-			var bNestLevel:number = (b instanceof UIComponent) ? (<UIComponent><any> b).nestLevel : -1;
-			
-			var aIndex:number = 0;
-			var bIndex:number = 0;
-			
-			if (aParent == bParent){
-				if ("getElementIndex" in aParent && "ownerChanged" in a)
-					aIndex = (<IVisualElementContainer><any> aParent).getElementIndex(<IVisualElement><any> a);
-				else
-					aIndex = (<DisplayObjectContainer><any> aParent).getChildIndex(a);
-				
-				if ("getElementIndex" in bParent &&"ownerChanged" in b)
-					bIndex = (<IVisualElementContainer><any> bParent).getElementIndex(<IVisualElement><any> b);
-				else
-					bIndex = (<DisplayObjectContainer><any> bParent).getChildIndex(b);
-			}
-			
-			if (aNestLevel > bNestLevel || aIndex > bIndex)
-				return 1;
-			else if (aNestLevel < bNestLevel ||  bIndex > aIndex)
-				return -1;
-			else if (a == b)
-				return 0;
-			else 
-				return this.breadthOrderCompare(aParent, bParent);
-		}
+
 		/**
 		 * 单选按钮添加到显示列表
 		 */		

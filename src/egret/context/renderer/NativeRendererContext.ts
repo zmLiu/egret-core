@@ -25,15 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../NativeContext.d.ts"/>
-/// <reference path="RendererContext.ts"/>
-/// <reference path="../../display/Graphics.ts"/>
-/// <reference path="../../display/Texture.ts"/>
-/// <reference path="../../geom/Matrix.ts"/>
-/// <reference path="../../text/TextField.ts"/>
-/// <reference path="../../utils/HashObject.ts"/>
-/// <reference path="../../utils/Profiler.ts"/>
-/// <reference path="../../context/NativeContext.d.ts"/>
 
 module egret {
     /**
@@ -116,22 +107,6 @@ module egret {
         }
 
         /**
-         * @method egret.NativeRendererContext#save
-         * @stable C 这个方法以后会和restore一起删除，移动到HTML5CanvasContext的具体实现中，而不是作为一个接口
-         */
-        public save() {
-
-        }
-
-        /**
-         * @method egret.NativeRendererContext#restore
-         * @stable C 这个方法以后会和save一起删除，移动到HTML5CanvasContext的具体实现中，而不是作为一个接口
-         */
-        public restore() {
-
-        }
-
-        /**
          * 设置渲染alpha
          * @method egret.NativeRendererContext#setAlpha
          * @param value {number}
@@ -177,14 +152,17 @@ module egret {
             egret_native.Label.drawText(text, x, y);
         }
 
-        /**
-         * 矩形遮罩
-         * @method egret.NativeRendererContext#clip
-         * @param x {any}
-         * @param y {any}
-         * @param w {any}
-         */
-        public clip(x, y, w, h) {
+        public pushMask(mask:Rectangle):void {
+            egret_native.Graphics.pushRectStencil(mask.x, mask.y, mask.width, mask.height, 255, 0, 0, 255 * 0.5, 0, false);
+        }
+
+        public popMask():void {
+            egret_native.Graphics.popStencil();
         }
     }
+}
+
+
+egret.Graphics.prototype._draw = function () {
+    return;
 }

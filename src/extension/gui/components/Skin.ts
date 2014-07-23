@@ -25,17 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../../../egret/display/DisplayObject.ts"/>
-/// <reference path="../../../egret/events/EventDispatcher.ts"/>
-/// <reference path="SkinnableComponent.ts"/>
-/// <reference path="../core/IContainer.ts"/>
-/// <reference path="../core/ISkin.ts"/>
-/// <reference path="../core/IStateClient.ts"/>
-/// <reference path="../core/IVisualElement.ts"/>
-/// <reference path="../core/IVisualElementContainer.ts"/>
-/// <reference path="../events/ElementExistenceEvent.ts"/>
-/// <reference path="../events/StateChangeEvent.ts"/>
-/// <reference path="../states/State.ts"/>
 
 module egret {
 
@@ -117,10 +106,6 @@ module egret {
         public _setHostComponent(value:SkinnableComponent){
             if(this._hostComponent==value)
                 return;
-            if(!this._initialized){
-                this._initialized = true;
-                this.createChildren();
-            }
             var i:number;
             if(this._hostComponent){
                 for(i = this._elementsContent.length - 1; i >= 0; i--){
@@ -129,16 +114,15 @@ module egret {
             }
 
             this._hostComponent = value;
+            if(!this._initialized){
+                this._initialized = true;
+                this.createChildren();
+            }
 
             if(this._hostComponent){
                 var n:number = this._elementsContent.length;
                 for (i = 0; i < n; i++){
-                    var elt:IVisualElement = this._elementsContent[i];
-                    if (elt.parent&&"removeElement" in elt.parent)
-                        (<IVisualElementContainer><any> (elt.parent)).removeElement(elt);
-                    else if(elt.owner&&"removeElement" in elt.owner)
-                        (<IContainer><any> (elt.owner)).removeElement(elt);
-                    this._elementAdded(elt, i);
+                    this._elementAdded(this._elementsContent[i], i);
                 }
 
                 this.initializeStates();
@@ -243,9 +227,6 @@ module egret {
 				this.setElementIndex(element, index);
 				return element;
 			}
-			else if (element.parent&&"removeElement" in element.parent){
-				(<IVisualElementContainer><any> (element.parent)).removeElement(element);
-			}
 			else if(host&&"removeElement" in host){
 				(<IContainer><any> host).removeElement(element);
 			}
@@ -254,6 +235,8 @@ module egret {
 			
 			if(this._hostComponent)
 				this._elementAdded(element, index);
+            else
+                element.ownerChanged(this);
 			
 			return element;
 		}
@@ -277,7 +260,8 @@ module egret {
 			
 			if(this._hostComponent)
 				this._elementRemoved(element, index);
-			
+			else
+                element.ownerChanged(null);
 			this._elementsContent.splice(index, 1);
 			
 			return element;

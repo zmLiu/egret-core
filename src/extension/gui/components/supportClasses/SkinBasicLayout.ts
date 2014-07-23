@@ -25,16 +25,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../../../../egret/utils/HashObject.ts"/>
-/// <reference path="../SkinnableComponent.ts"/>
-/// <reference path="../../core/ILayoutElement.ts"/>
 
 module egret {
 
 	/**
 	 * @class egret.SkinBasicLayout
 	 * @classdesc
-	 * 皮肤简单布局类。当SkinnableComponent的皮肤不是ISkinPartHost对象时启用。以提供子项的简单布局。
+	 * 皮肤简单布局类。
 	 * @extends egret.HashObject
 	 */
     export class SkinBasicLayout extends HashObject{

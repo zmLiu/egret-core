@@ -25,11 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../../../egret/context/MainContext.ts"/>
-/// <reference path="../../../egret/context/renderer/RendererContext.ts"/>
-/// <reference path="../../../egret/display/Graphics.ts"/>
-/// <reference path="../../../egret/geom/Rectangle.ts"/>
-/// <reference path="../core/UIComponent.ts"/>
 
 module egret {
 
@@ -60,7 +55,7 @@ module egret {
 
         public _render(renderContext:RendererContext):void {
             if (this._graphics)
-                this._graphics._draw();
+                this._graphics._draw(renderContext);
             super._render(renderContext);
         }
 

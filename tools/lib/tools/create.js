@@ -1,10 +1,10 @@
 var path = require("path");
-var libs = require("../core/normal_libs");
+var globals = require("../core/globals");
 var param = require("../core/params_analyze.js");
-var fs = require("fs");
 var async = require('../core/async');
 var compiler = require("./compile.js")
-
+var file = require("../core/file.js");
+var build = require("./build.js");
 
 /**
  * 创建新项目
@@ -15,72 +15,68 @@ var compiler = require("./compile.js")
 function run(currDir, args, opts) {
     var projectName = args[0];
     if (!projectName) {
-        libs.exit(1001);
+        globals.exit(1001);
     }
-
+    var projectPath = path.resolve(projectName);
     var runtime = param.getOption(opts, "--runtime", ["html5", "native"]);
-    var egret_file = path.join(currDir, projectName, "bin-debug/lib/egret_file_list.js");
-
+    var egretSourceList = [];
     async.series([
 
         function (callback) {
-            libs.log("正在创建新项目文件夹...");
-            createNewProject(projectName);
+            globals.log("正在创建新项目文件夹...");
+            file.copy(path.join(param.getEgretPath(), "tools/templates/game"),
+                projectPath);
+            if(process.platform!="win32"){
+                var list = file.search(projectPath,"bat");
+                list = list.concat(file.search(projectPath,"cmd"));
+                for(var i=list.length-1;i>=0;i--){
+                    file.remove(list[i]);
+                }
+            }
             callback();
         },
 
         function (callback) {
-
-            libs.log ("正在生成egret_file_list...");
-            compiler.generateEgretFileList(callback, egret_file, runtime);
-
+            globals.log ("正在生成egret_file_list...");
+            egretSourceList = compiler.generateEgretFileList(runtime,projectPath);
+            callback();
         },
 
         function (callback) {
-            libs.log("正在编译egret...");
+            globals.log("正在编译egret...");
             compiler.compile(callback,
                 path.join(param.getEgretPath(), "src"),
-                path.join(currDir, projectName, "bin-debug/lib"),
-                egret_file
+                path.join(projectPath, "bin-debug/lib"),
+                egretSourceList
             );
         },
 
 
         function (callback) {
-            libs.log ("正在导出 egret.d.ts...");
+            globals.log ("正在导出 egret.d.ts...");
             compiler.exportHeader(callback,
-                path.join(param.getEgretPath(), "src"),
-                path.join(currDir, projectName, "src", "egret.d.ts"),
-                egret_file
+                projectPath,
+                egretSourceList
             );
 
         },
 
         function (callback) {
-            compiler.compile(callback,
-                path.join(currDir, projectName, "src"),
-                path.join(currDir, projectName, "bin-debug/src"),
-                path.join(currDir, projectName, "src/game_file_list.js")
-            );
+           globals.log ("正在编译项目...");
+           build.buildProject(callback,projectPath);
         },
 
         function (callback) {
-            libs.log("创建成功");
+            globals.log("创建成功");
         }
     ])
 
 
 }
 
-//创建 游戏目录
-function createNewProject(projectName) {
-    var template = path.join(param.getEgretPath(), "tools/templates/game");
-    var projPath = path.join(process.cwd(), projectName);
-    libs.copy(template, projPath);
-}
 
 function help_title() {
-    return "创建新项目";
+    return "创建新项目\n";
 }
 
 

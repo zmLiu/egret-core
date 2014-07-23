@@ -4,11 +4,15 @@
 
 
 var path = require("path");
-var fs = require("fs");
 var async = require('../core/async');
 var cp_exec = require('child_process').exec;
-var libs = require("../core/normal_libs");
+var globals = require("../core/globals");
 var param = require("../core/params_analyze.js");
+var file = require("../core/file.js");
+var exmlc = require("../exml/exmlc.js");
+var CodeUtil = require("../core/code_util.js");
+var create_manifest = require("./create_manifest.js");
+var crc32 = require("../core/crc32.js");
 
 
 function run(currentDir, args, opts) {
@@ -16,14 +20,14 @@ function run(currentDir, args, opts) {
     var source = opts["--source"];
     var output = opts["--output"];
     if (!source || !output) {
-        libs.exit(1302);
+        globals.exit(1302);
     }
     source = source[0];
     output = output[0];
     if (!source || !output) {
-        libs.exit(1302);
+        globals.exit(1302);
     }
-    buildAllFile(function () {
+    compile(function () {
         console.log("编译成功");
     }, source, output)
 }
@@ -32,68 +36,83 @@ function run(currentDir, args, opts) {
  * 编译指定的代码
  *
  * @param callback 回调函数
- * @param source 源文件所在的文件夹
+ * @param srcPath 源文件所在的文件夹
  * @param output 输出地址
- * @param file_list 文件名称，默认为source/src/game_file_list.js或 source/src/egret_file_list.js
+ * @param sourceList 要编译的文件列表包含ts和exml
+ * @param keepGeneratedTypescript 是否保留exml生成的ts文件
  */
-function buildAllFile(callback, source, output, file_list) {
+function compile(callback, srcPath, output, sourceList, keepGeneratedTypescript) {
+
+    var exmlList = [];
+    var tsList = [];
+    var length = sourceList.length;
+    for (var i = 0; i < length; i++) {
+        var p = sourceList[i];
+        if (!file.exists(p)|| p.indexOf("exml.d.ts")!=-1) {
+            continue;
+        }
+        var ext = file.getExtension(p).toLowerCase();
+        if (ext == "ts") {
+            tsList.push(p);
+        }
+        else if (ext == "exml") {
+            exmlList.push(p);
+            tsList.push(p.substring(0, p.length - 4) + "ts");
+        }
+    }
+
+    tsList = parseFromCrc32(tsList);
+
+    globals.addCallBackWhenExit(cleanTempFile);
 
     async.waterfall([
-        checkCompilerInstalled,
-
-
-        function (callback) {
-            libs.remove(output);
-            callback();
-        },
 
         //cp所有非ts/exml文件
         function (callback) {
-            var all_file = libs.loopFileSync(source, filter);
+            var all_file = file.searchByFunction(srcPath, filter);
             all_file.forEach(function (item) {
-                libs.copy(path.join(source, item), path.join(output, item));
+                var itemName = item.substring(srcPath.length);
+                file.copy(item, path.join(output, itemName));
             })
             callback(null);
 
             function filter(path) {
                 var index = path.lastIndexOf(".");
-                if(index==-1){
+                if (index == -1) {
                     return true;
                 }
                 var ext = path.substring(index).toLowerCase();
-                return ext!=".ts"&&ext!=".exml";
+                return ext != ".ts" && ext != ".exml";
             }
         },
-
+        //编译exml文件
         function (callback) {
-            var sourceList = getFileList(file_list);
-            sourceList = sourceList.map(function (item) {
-                return path.join(source, item).replace(".js", ".ts");
-            }).filter(function (item) {
-                    return fs.existsSync(item);
-                }).map(function(item){
-                    return "\"" + item + "\"";
-                })
+            exmlList.forEach(function (item) {
+                exmlc.compile(item, srcPath);
+            });
 
-            var cmd = "" + sourceList.join(" ") + " -t ES5 --outDir " + "\"" + output + "\"";
-            fs.writeFileSync("tsc_config_temp.txt", cmd, "utf-8");
-            var ts = cp_exec("tsc @tsc_config_temp.txt");
-            ts.stderr.on("data", function (data) {
-                console.log(data);
-            })
+            callback();
+        },
+        //编译ts文件
+        function (callback) {
+            tsList = tsList.map(function (item) {
+                return "\"" + item + "\"";
+            });
 
+            var sourcemap = param.getArgv()["opts"]["-sourcemap"];
+            sourcemap = sourcemap ? "--sourcemap " : "";
 
-            ts.on('exit', function (code) {
-                fs.unlinkSync("tsc_config_temp.txt");
-
+            var cmd = sourcemap + tsList.join(" ") + " -t ES5 --outDir " + "\"" + output + "\"";
+            file.save("tsc_config_temp.txt", cmd);
+            typeScriptCompiler(function (code) {
+                cleanTempFile();
                 if (code == 0) {
-                    libs.log("编译 " + file_list + " 成功");
-                    callback(null, source);
+                    file.save(crc32FilePath, JSON.stringify(crc32Map));
+                    callback(null, srcPath);
                 }
                 else {
                     callback(1303);
                 }
-
             });
         }
 
@@ -103,86 +122,131 @@ function buildAllFile(callback, source, output, file_list) {
         callback(err);
     })
 
-
+    function cleanTempFile() {
+        file.remove("tsc_config_temp.txt");
+        file.remove("game.d.ts");
+        if (!keepGeneratedTypescript && exmlList) {
+            exmlList.forEach(function (p) {
+                var tsPath = p.substring(0, p.length - 4) + "ts";
+                file.remove(tsPath);
+            });
+        }
+    }
 }
 
-function getFileList(file_list) {
-    if (fs.existsSync(file_list)) {
-        var js_content = fs.readFileSync(file_list, "utf-8");
-        eval(js_content);
-        var path = require("path");
-        var varname = path.basename(file_list).split(".js")[0];
-        return eval(varname);
+var crc32FilePath;
+var crc32Map;
+function parseFromCrc32(tsList) {
+    var result = [];
+    var argv = param.getArgv();
+    var currDir = globals.joinEgretDir(argv.currDir, argv.args[0]);
+    crc32FilePath = path.join(currDir, "crc32.temp");
+    var crc32Txt = "";
+    if (file.exists(crc32FilePath)) {
+        crc32Txt = file.read(crc32FilePath);
+        crc32Map = JSON.parse(crc32Txt);
     }
     else {
-        libs.exit(1301, file_list);
+        crc32Map = {};
+    }
+    var l = tsList.length;
+    for (var j = 0; j < l; j++) {
+        var tsFilePath = tsList[j];
+        if (tsFilePath.indexOf(".d.ts") != -1) {//.d.ts一定要传给编译器
+            result.push(tsFilePath);
+            continue;
+        }
+        var tsFileTxt = file.read(tsFilePath);
+        var tsFileCrc32Txt = crc32.direct(tsFileTxt);
+        if (crc32Map[tsFilePath] && crc32Map[tsFilePath] == tsFileCrc32Txt) {//有过改变的文件需要编译
+            continue;
+        }
+        crc32Map[tsFilePath] = tsFileCrc32Txt;
+        result.push(tsFilePath);
+    }
+
+    if (isQuickMode()) {
+        var projectDTS = create_manifest.createProjectDTS(result, path.join(currDir, "src"));
+        file.save("game.d.ts", projectDTS);
+        result.push(path.join(argv.currDir, "game.d.ts"));
+        return result;
+    }
+    else {
+        return tsList;
     }
 }
 
-function checkCompilerInstalled(callback) {
-    var checkTypeScriptCompiler = "tsc";
-    var tsc = cp_exec(checkTypeScriptCompiler);
-    tsc.on('exit', function (code) {
-            if (code == 0) {
-                callback();
+function typeScriptCompiler(quitFunc) {
+    var TypeScript = require('../core/typescript/tsc.js');
+    TypeScript.IO.arguments = ["@tsc_config_temp.txt"];
+    TypeScript.IO.quit = quitFunc;
+
+    if (isQuickMode()) {//快速构建，去掉类型检查阶段
+        TypeScript.PullTypeResolver.typeCheck = function (compilationSettings, semanticInfoChain, document) {
+            var sourceUnit = document.sourceUnit();
+
+            var resolver = semanticInfoChain.getResolver();
+            var context = new TypeScript.PullTypeResolutionContext(resolver, true, sourceUnit.fileName());
+
+            if (resolver.canTypeCheckAST(sourceUnit, context)) {
+                resolver.resolveAST(sourceUnit, false, context);
             }
-            else {
-                libs.exit(2);
-            }
+        };
+    }
+
+    var batch = new TypeScript.BatchCompiler(TypeScript.IO);
+    batch.batchCompile();
+}
+
+function isQuickMode() {
+    var opts = param.getArgv().opts;
+    if ((opts["-quick"] || opts["-q"]) && !opts["-e"]) {
+        return true;
+    }
+    return false;
+}
+
+function exportHeader(callback, projectPath, sourceList) {
+    var list = [];
+    var length = sourceList.length;
+    for (var i = 0; i < length; i++) {
+        var p = sourceList[i];
+        if (!file.exists(p)) {
+            continue;
         }
-    );
-}
-
-function generateEgretFileList(callback, egret_file, runtime) {
-    var file_list = libs.require("tools/lib/core/file_list.js");
-    var required_file_list = file_list.core.concat(file_list[runtime]);
-
-    var content = required_file_list.map(function (item) {
-        return "\"" + item + "\""
-    }).join(",\n")
-    content = "var egret_file_list = [\n" + content + "\n]";
-    libs.mkdir(path.dirname(egret_file));
-    fs.writeFileSync(egret_file, content, "utf-8");
-    callback();
-
-}
-
-
-function exportHeader(callback, source, output, file_list) {
-    var list = getFileList(file_list);
+        var ext = file.getExtension(p).toLowerCase();
+        if (ext == "ts") {
+            list.push(p);
+        }
+        else if (ext == "exml") {
+            list.push(p.substring(0, p.length - 4) + "ts");
+        }
+    }
     list = list.map(function (item) {
-        return path.join(source, item).replace(".js", ".ts");
-    }).filter(function (item) {
-            return fs.existsSync(item);
-        }).map(function(item){
-            return "\"" + item + "\"";
-        })
+        return "\"" + item + "\"";
+    })
+    var output = path.join(projectPath, "libs/egret.d.ts");
     var source = list.join(" ");
     var cmd = source + " -t ES5 -d --out " + "\"" + output + "\"";
-    fs.writeFileSync("tsc_config_temp.txt", cmd, "utf-8");
-    var ts = cp_exec("tsc @tsc_config_temp.txt");
-    ts.stderr.on("data", function (data) {
-        console.log(data);
-    })
-
-    ts.on('exit', function (code) {
+    file.save("tsc_config_temp.txt", cmd);
+    typeScriptCompiler(function (code) {
         if (code == 0) {
-            var egretDTS = fs.readFileSync(output,"utf-8");
+            var egretDTS = file.read(output);
             var lines = egretDTS.split("\n");
             var length = lines.length;
-            for(var i=0;i<length;i++){
+            for (var i = 0; i < length; i++) {
                 var line = lines[i];
-                if(line.indexOf("/// <reference path")!=-1){
-                    lines.splice(i,1);
+                if (line.indexOf("/// <reference path") != -1) {
+                    lines.splice(i, 1);
                     i--;
                 }
-                else{
+                else {
                     break;
                 }
             }
             egretDTS = lines.join("\n");
-            fs.writeFileSync(output,egretDTS,"utf-8");
-            libs.log(".d.ts文件导出成功");
+            file.save(output, egretDTS);
+            globals.log(".d.ts文件导出成功");
             if (callback) {
                 callback();
             }
@@ -190,11 +254,128 @@ function exportHeader(callback, source, output, file_list) {
         else {
             callback(1303)
         }
-
     });
 }
 
-exports.compile = buildAllFile;
+function generateEgretFileList(runtime, projectPath) {
+    var coreList = globals.require("tools/lib/manifest/core.json");
+    var runtimeList = globals.require("tools/lib/manifest/" + runtime + ".json");
+    var egretPath = param.getEgretPath();
+    var manifest = coreList.concat(runtimeList);
+    var length = manifest.length;
+    for (var i = 0; i < length; i++) {
+        manifest[i] = file.joinPath(egretPath, "src", manifest[i]);
+    }
+    var srcPath = path.join(param.getEgretPath(), "src/");
+    srcPath = srcPath.split("\\").join("/");
+    var egretFileListText = createFileList(manifest, srcPath);
+    egretFileListText = "var egret_file_list = " + egretFileListText + ";";
+    file.save(file.joinPath(projectPath, "bin-debug/lib/egret_file_list.js"), egretFileListText);
+    return manifest;
+}
+
+function generateGameFileList(projectPath) {
+    var manifestPath = path.join(projectPath, "manifest.json");
+    var srcPath = path.join(projectPath, "src/");
+    var manifest;
+    if (file.exists(manifestPath)) {
+        manifest = getManifestJson(manifestPath, srcPath);
+    }
+    else {
+        manifest = create_manifest.create(srcPath);
+    }
+    var fileListText = createFileList(manifest, srcPath);
+    fileListText = "var game_file_list = " + fileListText + ";";
+    file.save(path.join(projectPath, "bin-debug/src/game_file_list.js"), fileListText);
+    return manifest;
+}
+
+function getManifestJson(file_list, srcPath) {
+    if (!file.exists(file_list)) {
+        return [];
+    }
+    var content = file.read(file_list);
+    try {
+        var manifest = JSON.parse(content);
+    }
+    catch (e) {
+        globals.exit(1304, file_list);
+    }
+    var length = manifest.length;
+    for (var i = 0; i < length; i++) {
+        manifest[i] = file.joinPath(srcPath, manifest[i]);
+    }
+    return manifest;
+}
+
+function createFileList(manifest, srcPath) {
+
+    var gameList = [];
+    var length = manifest.length;
+    for (var i = 0; i < length; i++) {
+        var filePath = manifest[i];
+        if (filePath.indexOf(".d.ts") != -1) {
+            continue;
+        }
+        var ext = file.getExtension(filePath).toLowerCase();
+        if (ext=="ts"&&isInterface(filePath)) {
+            continue;
+        }
+        gameList.push(filePath);
+    }
+
+    length = gameList.length;
+    for (i = 0; i < length; i++) {
+        filePath = gameList[i];
+        filePath = filePath.substring(srcPath.length);
+        var ext = file.getExtension(filePath).toLowerCase();
+        if (ext == "exml") {
+            filePath = filePath.substring(0, filePath.length - 4) + "js";
+        }
+        else if (ext == "ts") {
+            filePath = filePath.substring(0, filePath.length - 2) + "js";
+        }
+        gameList[i] = "    \"" + filePath + "\"";
+    }
+    var gameListText = "[\n" + gameList.join(",\n") + "\n]";
+    return gameListText;
+}
+
+/**
+ * 这个文件是否只含有接口
+ */
+function isInterface(path) {
+    var text = file.read(path);
+    text = CodeUtil.removeComment(text);
+    text = removeInterface(text);
+    if (!CodeUtil.containsVariable("class", text) && !CodeUtil.containsVariable("var", text) && !CodeUtil.containsVariable("function", text)) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * 移除代码中的接口定义
+ */
+function removeInterface(text) {
+    var tsText = "";
+    while (text.length > 0) {
+        var index = CodeUtil.getFirstVariableIndex("interface", text);
+        if (index == -1) {
+            tsText += text;
+            break;
+        }
+        tsText += text.substring(0, index);
+        text = text.substring(index);
+        index = CodeUtil.getBracketEndIndex(text);
+        text = text.substring(index + 1);
+    }
+    return tsText;
+}
+
+
+exports.compile = compile;
 exports.exportHeader = exportHeader;
-exports.generateEgretFileList = generateEgretFileList;
 exports.run = run;
+exports.generateEgretFileList = generateEgretFileList;
+exports.generateGameFileList = generateGameFileList;

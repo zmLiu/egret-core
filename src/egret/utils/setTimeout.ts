@@ -25,24 +25,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-declare module egret {
-    export class DEBUG {
-        /**
-         * drawImage时检测传入参数
-         */
-        static DRAW_IMAGE:boolean;
+module egret {
+    export function setTimeout(callback:Function, time:number, ...args):any {
+        //考虑要不要所有setTimeout只添加一个侦听
+        var passTime:number = 0;
+        Ticker.getInstance().register(update, callback);
 
-        static checkDrawImage(texture:any, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
+        function update(dt:number):void {
+            passTime += dt;
+            if (passTime >= time) {
+                Ticker.getInstance().unregister(update, callback);
 
-        static ADD_EVENT_LISTENER:boolean;
-
-        static checkAddEventListener(eventName:string, func:Function, thisObj, useCapture:boolean, priority:number);
-
-        static SCALE_BITMAP_SET_SCALE_GRID:boolean;
-
-        static checkSetScaleGrid(texture, top, bottom, left, right);
-
-        static TRACE_RENDER_LOOP(command:number):void;
-
+                callback.apply(null, args || null);
+            }
+        }
     }
 }

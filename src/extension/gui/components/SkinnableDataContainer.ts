@@ -25,14 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../collections/ICollection.ts"/>
-/// <reference path="DataGroup.ts"/>
-/// <reference path="IItemRenderer.ts"/>
-/// <reference path="IItemRendererOwner.ts"/>
-/// <reference path="SkinnableComponent.ts"/>
-/// <reference path="../core/IVisualElement.ts"/>
-/// <reference path="../events/RendererExistenceEvent.ts"/>
-/// <reference path="../layouts/supportClasses/LayoutBase.ts"/>
 
 module egret {
 
@@ -125,13 +117,13 @@ module egret {
 		 * rendererClass获取顺序：itemRendererFunction > itemRenderer > 默认ItemRenerer。
 		 * @member egret.SkinnableDataContainer#itemRenderer
 		 */		
-		public get itemRenderer():any{
+		public get itemRenderer():IFactory{
 			return (this.dataGroup) 
 			? this.dataGroup.itemRenderer 
 				: this._dataGroupProperties.itemRenderer;
 		}
 		
-		public set itemRenderer(value:any){
+		public set itemRenderer(value:IFactory){
 			if (this.dataGroup==null){
 				this._dataGroupProperties.itemRenderer = value;
 			}

@@ -41,15 +41,17 @@ function parse(xmlString) {
                 node["$"+key] = attribs[key];
             }
         }
-        node.attributes = attributes;
+        node.text = "";
         node.toString = toString;
         var name = node.name;
         var index = name.indexOf(":");
         if (index == -1) {
             node.namespace = "";
+            node.prefix = "";
             node.localName = name;
         } else {
             var prefix = name.substring(0, index);
+            node.prefix = prefix;
             node.namespace = namespaces[prefix];
             node.localName = name.substring(index + 1);
         }
@@ -97,14 +99,4 @@ function toString(){
     return this.text;
 };
 
-function attributes(){
-    var attribs = [];
-    for(var key in this){
-        if(key.charAt(0)=="$"){
-            key = key.substring(1);
-            attribs.push(key);
-        }
-    }
-    return attrib;
-};
 exports.parse = parse;

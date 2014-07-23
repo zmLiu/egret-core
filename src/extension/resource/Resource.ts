@@ -16,19 +16,6 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/// <reference path="../../egret/events/EventDispatcher.ts"/>
-/// <reference path="../../egret/utils/Injector.ts"/>
-/// <reference path="analyzer/AnalyzerBase.ts"/>
-/// <reference path="analyzer/BinAnalyzer.ts"/>
-/// <reference path="analyzer/SoundAnalyzer.ts"/>
-/// <reference path="analyzer/ImageAnalyzer.ts"/>
-/// <reference path="analyzer/JsonAnalyzer.ts"/>
-/// <reference path="analyzer/TextAnalyzer.ts"/>
-/// <reference path="analyzer/XMLAnalyzer.ts"/>
-/// <reference path="core/ResourceConfig.ts"/>
-/// <reference path="core/ResourceItem.ts"/>
-/// <reference path="core/ResourceLoader.ts"/>
-/// <reference path="events/ResourceEvent.ts"/>
 
 module RES {
     /**
@@ -71,11 +58,11 @@ module RES {
     /**
      * 创建自定义的加载资源组,注意：此方法仅在资源配置文件加载完成后执行才有效。
      * 可以监听ResourceEvent.CONFIG_COMPLETE事件来确认配置加载完成。
-	 * @method RES.createGroup
+     * @method RES.createGroup
      * @param name {string} 要创建的加载资源组的组名
-     * @param keys {egret.Array<string>} 要包含的键名列表，key对应配置文件里的name属性或sbuKeys属性的一项。
+     * @param keys {egret.Array<string>} 要包含的键名列表，key对应配置文件里的name属性或一个资源组名。
      * @param override {boolean} 是否覆盖已经存在的同名资源组,默认false。
-	 * @returns {boolean}
+     * @returns {boolean}
      */
     export function createGroup(name:string,keys:Array<string>,override:boolean = false):boolean{
         return instance.createGroup(name,keys,override);
@@ -120,10 +107,10 @@ module RES {
         instance.getResByUrl(url,compFunc,thisObject,type);
     }
     /**
-     * 销毁某个资源文件的缓存数据,返回是否删除成功。
-	 * @method RES.destroyRes
-     * @param name {string} 配置文件中加载项的name属性
-	 * @returns {boolean}
+     * 销毁单个资源文件或一组资源的缓存数据,返回是否删除成功。
+     * @method RES.destroyRes
+     * @param name {string} 配置文件中加载项的name属性或资源组名
+     * @returns {boolean}
      */
     export function destroyRes(name:string):boolean{
         return instance.destroyRes(name);
@@ -262,7 +249,7 @@ module RES {
          * 根据组名获取组加载项列表
 		 * @method RES.getGroupByName
 		 * @param name {string} 
-		 * @returns {egret.ResourceItem}
+		 * @returns {Array<egret.ResourceItem>}
          */
         public getGroupByName(name:string):Array<ResourceItem>{
             return this.resConfig.getGroupByName(name);
@@ -287,12 +274,13 @@ module RES {
             }
         }
         /**
-         * 创建自定义的加载资源组
-		 * @method RES.createGroup
-		 * @param name {string} 
-		 * @param keys {egret.Array<string>} 
-		 * @param override {boolean} 
-		 * @returns {boolean}
+         * 创建自定义的加载资源组,注意：此方法仅在资源配置文件加载完成后执行才有效。
+         * 可以监听ResourceEvent.CONFIG_COMPLETE事件来确认配置加载完成。
+         * @method RES.ResourceConfig#createGroup
+         * @param name {string} 要创建的加载资源组的组名
+         * @param keys {egret.Array<string>} 要包含的键名列表，key对应配置文件里的name属性或一个资源组名。
+         * @param override {boolean} 是否覆盖已经存在的同名资源组,默认false。
+         * @returns {boolean}
          */
         public createGroup(name:string,keys:Array<string>,override:boolean=false):boolean{
             return this.resConfig.createGroup(name,keys,override);
@@ -369,28 +357,29 @@ module RES {
         private asyncDic:any = {};
         /**
          * 通过name异步获取资源
-		 * @method RES.getResAsync
-		 * @param name {string} 
-		 * @param compFunc {Function} 
-		 * @param thisObject {any} 
+         * @method RES.getResAsync
+         * @param name {string}
+         * @param compFunc {Function}
+         * @param thisObject {any}
          */
-        public getResAsync(name:string,compFunc:Function,thisObject:any):void{
-            var type:string = this.resConfig.getType(name);
+        public getResAsync(key:string,compFunc:Function,thisObject:any):void{
+            var type:string = this.resConfig.getType(key);
+            var name:string = key;
             if(type==""){
-                var prefix:string = RES.AnalyzerBase.getStringPrefix(name);
-                type = this.resConfig.getType(prefix);
+                name = RES.AnalyzerBase.getStringPrefix(key);
+                type = this.resConfig.getType(name);
                 if(type==""){
                     compFunc.call(thisObject,null);
                     return;
                 }
             }
             var analyzer:AnalyzerBase = this.getAnalyzerByType(type);
-            var res:any = analyzer.getRes(name);
+            var res:any = analyzer.getRes(key);
             if(res){
                 compFunc.call(thisObject,res);
                 return;
             }
-            var args:any = {name:name,compFunc:compFunc,thisObject:thisObject};
+            var args:any = {name:key,compFunc:compFunc,thisObject:thisObject};
             if(this.asyncDic[name]){
                 this.asyncDic[name].push(args);
             }
@@ -478,17 +467,36 @@ module RES {
             }
         }
         /**
-         * 销毁某个资源文件的缓存数据,返回是否删除成功。
+         * 销毁单个资源文件或一组资源的缓存数据,返回是否删除成功。
 		 * @method RES.destroyRes
-         * @param name {string} 配置文件中加载项的name属性
+         * @param name {string} 配置文件中加载项的name属性或资源组名
 		 * @returns {boolean}
          */
         public destroyRes(name:string):boolean{
-            var type:string = this.resConfig.getType(name);
-            if(type=="")
-                return false;
-            var analyzer:AnalyzerBase = this.getAnalyzerByType(type);
-            return analyzer.destroyRes(name);
+            var group:Array<any> = this.resConfig.getRawGroupByName(name);
+            if(group){
+                var index:number = this.loadedGroups.indexOf(name);
+                if(index!=-1){
+                    this.loadedGroups.splice(index,1);
+                }
+                var length:number = group.length;
+                for(var i:number=0;i<length;i++){
+                    var item:any = group[i];
+                    item.loaded = false;
+                    var analyzer:AnalyzerBase = this.getAnalyzerByType(item.type);
+                    analyzer.destroyRes(item.name);
+                }
+                return true;
+            }
+            else{
+                var type:string = this.resConfig.getType(name);
+                if(type=="")
+                    return false;
+                item = this.resConfig.getRawResourceItem(name);
+                item.loaded = false;
+                analyzer = this.getAnalyzerByType(type);
+                return analyzer.destroyRes(name);
+            }
         }
     }
     /**

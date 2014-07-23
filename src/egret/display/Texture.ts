@@ -25,13 +25,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../context/MainContext.ts"/>
-/// <reference path="../utils/HashObject.ts"/>
 
 module egret {
+    
     /**
-     * @class Texture
-     * 纹理类是对不同平台不同的图片资源的封装
+     * @class egret.Texture
+     * @classdesc 纹理类是对不同平台不同的图片资源的封装
      * 在HTML5中，资源是一个HTMLElement对象
      * 在OpenGL / WebGL中，资源是一个提交GPU后获取的纹理id
      * Texture类封装了这些底层实现的细节，开发者只需要关心接口即可
@@ -41,15 +40,23 @@ module egret {
         public constructor(){
             super();
         }
+        /**
+         * 表示这个纹理在bitmapData上的x起始位置
+         */
+        public _bitmapX:number = 0;
+        /**
+         * 表示这个纹理在bitmapData上的y起始位置
+         */
+        public _bitmapY:number = 0;
+        /**
+         * 表示这个纹理在bitmapData上的宽度
+         */
+        public _bitmapWidth:number = 0;
+        /**
+         * 表示这个纹理在bitmapData上的高度
+         */
+        public _bitmapHeight:number = 0;
 
-        /**
-         * 表示这个纹理在原始位图上的起始位置
-         */
-        public _startX:number = 0;
-        /**
-         * 表示这个纹理在原始位图上的y起始位置
-         */
-        public _startY:number = 0;
         /**
          * 表示这个纹理显示了之后在x方向的渲染偏移量
          */
@@ -63,30 +70,61 @@ module egret {
         public _textureWidth:number = 0;
         /**
          * 纹理宽度
+         * @member {number} egret.Texture#textureWidth
          */
         public get textureWidth():number {
             return this._textureWidth;
         }
 
+
         public _textureHeight:number = 0;
         /**
          * 纹理高度
+         * @member {number} egret.Texture#textureWidth
          */
         public get textureHeight():number {
             return this._textureHeight;
         }
+        /**
+         * 表示bitmapData.width
+         */
+        public _sourceWidth:number;
+        /**
+         * 表示bitmapData.height
+         */
+        public _sourceHeight:number;
 
         public _bitmapData;
-
+        /**
+         * 纹理对象中得位图数据
+         * @member {any} egret.Texture#bitmapData
+         */
         public get bitmapData() {
             return this._bitmapData;
         }
 
-        public set bitmapData(value:any) {
+        public _setBitmapData(value:any) {
             var scale = egret.MainContext.instance.rendererContext.texture_scale_factor;
             this._bitmapData = value;
-            this._textureWidth = value.width * scale;
-            this._textureHeight = value.height * scale;
+            this._sourceWidth = value.width;
+            this._sourceHeight = value.height;
+            this._textureWidth = this._sourceWidth * scale;
+            this._textureHeight = this._sourceHeight * scale;
+            this._bitmapWidth = this._textureWidth;
+            this._bitmapHeight = this._textureHeight;
+            this._offsetX = this._offsetY = this._bitmapX = this._bitmapY = 0;
+        }
+
+        /**
+         * 获取某一点像素的颜色值
+         * @method egret.Texture#getPixel32
+         * @param x 像素点的X轴坐标
+         * @param y 像素点的Y轴坐标
+         * @returns {number} 指定像素点的颜色值
+         */
+        public getPixel32(x,y):number[]{
+            var result:any = this._bitmapData.getContext("2d").getImageData(x,y,1,1);
+            return result.data;
         }
     }
 }

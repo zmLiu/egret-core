@@ -25,13 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="NetContext.ts"/>
-/// <reference path="../../context/NativeContext.d.ts"/>
-/// <reference path="../../events/Event.ts"/>
-/// <reference path="../../net/URLLoader.ts"/>
-/// <reference path="../../net/URLLoaderDataFormat.ts"/>
-/// <reference path="../../net/URLRequest.ts"/>
-/// <reference path="../../utils/callLater.ts"/>
 
 module egret {
 
@@ -53,6 +46,22 @@ module egret {
                 return;
             }
 
+
+            var url = loader._request.url;
+            if (url.indexOf("http://") == 0){
+                egret_native.requireHttpSync( url , function( str_resultcode ,str_recived_data  ) {
+                    if (str_resultcode == 0){
+                        loader.data = str_recived_data;
+                        callLater(Event.dispatchEvent, Event, loader, Event.COMPLETE);
+                    }
+                    else{
+                        //todo
+                        console.log ("net error:" + str_resultcode);
+                    }
+                })
+                return;
+            }
+
             callLater(onLoadComplete, this);
 
             function onLoadComplete() {
@@ -71,7 +80,7 @@ module egret {
                 var request:URLRequest = loader._request;
                 var bitmapData = egret_native.Texture.addTexture(request.url);
                 var texture = new Texture();
-                texture.bitmapData = bitmapData;
+                texture._setBitmapData(bitmapData);
                 loader.data = texture;
                 Event.dispatchEvent(loader,Event.COMPLETE);
             };

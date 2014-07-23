@@ -2,7 +2,8 @@ var http = require('http');
 var url = require('url');
 var fs = require('fs');
 var path = require('path');
-var libs = require("../core/normal_libs");
+var globals = require("../core/globals");
+var os = require("os");
 
 var mine = {
     "css": "text/css",
@@ -27,14 +28,18 @@ var mine = {
 
 function run(dir, args, opts) {
     var PORT = 3000;
+    if (opts["--port"] && opts["--port"][0]) {
+        PORT = opts["--port"][0];
+    }
     var server = http.createServer(onGet);
-    server.addListener("error",function(){
-        libs.exit(1501);
+    server.addListener("error", function () {
+        globals.exit(1501);
     })
-    server.listen(PORT,function(){
+    server.listen(PORT, function () {
         var open = require("../core/open");
-        libs.joinEgretDir(dir, args[0]);
-        var url = path.join("http://localhost:3000", args[0], "launcher/index.html");
+        globals.joinEgretDir(dir, args[0]);
+        var ip = findIP(opts);
+        var url = path.join("http://" + ip + ":" + PORT, args[0] ? args[0] : "", "launcher/index.html");
         open(url);
         console.log("Server runing at port: " + PORT + ".");
         exports.projectName = args[0];
@@ -43,6 +48,25 @@ function run(dir, args, opts) {
 
 }
 
+function findIP(opts) {
+    var ipConfig = os.networkInterfaces();
+    var ip = "localhost";
+    if (!opts["-ip"]) {
+        return ip;
+    }
+    for (var key in ipConfig) {
+        var arr = ipConfig[key];
+        var length = arr.length;
+        for (var i = 0; i < length; i++) {
+            var ipData = arr[i];
+            if (!ipData.internal && ipData.family == "IPv4") {
+                ip = ipData.address;
+                return ip;
+            }
+        }
+    }
+    return ip;
+}
 
 function onGet(request, response) {
     var projectName = exports.projectName;
@@ -123,7 +147,7 @@ function executeCommand(callback, script) {
             callback();
         }
         else {
-            libs.log("脚本执行失败");
+            globals.log("脚本执行失败");
         }
 
     });
@@ -131,12 +155,16 @@ function executeCommand(callback, script) {
 
 
 function help_title() {
-    return "启动HttpServer,并在默认浏览器中打开指定项目";
+    return "启动HttpServer,并在默认浏览器中打开指定项目\n";
 }
 
 
 function help_example() {
-    return "egret startserver [project_name]";
+    var result = "egret startserver [project_name] [--port 3000] [-ip]\n";
+    result += "参数说明:\n";
+    result += "    --port           指定端口号\n";
+    result += "    -ip              是否使用本机IP";
+    return result;
 }
 
 exports.run = run;

@@ -25,11 +25,12 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 /// <reference path="node.d.ts"/>
-var fs = require("fs");
+var file = require("../core/file.js");
 var xml = require("../core/xml.js");
 var param = require("../core/params_analyze.js");
 var properties = require("./properties.json");
 var CodeUtil = require("../core/code_util.js");
+var create_manifest = require("../tools/create_manifest.js");
 
 var EXMLConfig = (function () {
     /**
@@ -40,15 +41,46 @@ var EXMLConfig = (function () {
         * 组件清单列表
         */
         this.componentDic = {};
-        this.pathToClassName = {};
-        this.classNameToPath = {};
         this.basicTypes = ["void", "any", "number", "string", "boolean", "Object", "Array", "Function"];
         var exmlPath = param.getEgretPath() + "/tools/lib/exml/";
         exmlPath = exmlPath.split("\\").join("/");
-        var str = fs.readFileSync(exmlPath + "egret-manifest.xml", "utf-8");
+        var str = file.read(exmlPath + "egret-manifest.xml");
         var manifest = xml.parse(str);
         this.parseManifest(manifest);
     }
+    Object.defineProperty(EXMLConfig.prototype, "srcPath", {
+        get: function () {
+            return this._srcPath;
+        },
+        set: function (value) {
+            this._srcPath = value;
+            this.classNameToPath = create_manifest.getClassToPathInfo(this.srcPath);
+            this.parseModules();
+        },
+        enumerable: true,
+        configurable: true
+    });
+
+
+    EXMLConfig.prototype.parseModules = function () {
+        this.classNameToModule = {};
+        for (var className in this.classNameToPath) {
+            var index = className.lastIndexOf(".");
+            var ns = "";
+            if (index != -1) {
+                ns = className.substring(0, index);
+                className = className.substring(index + 1);
+            }
+            var list = this.classNameToModule[className];
+            if (!list) {
+                list = this.classNameToModule[className] = [];
+            }
+            if (list.indexOf(ns) == -1) {
+                list.push(ns);
+            }
+        }
+    };
+
     /**
     * 解析框架清单文件
     */
@@ -98,77 +130,28 @@ var EXMLConfig = (function () {
                 name = "";
             }
         } else {
-            var path = this.getPathById(id, ns);
-            name = this.pathToClassName[path];
-            if (!name) {
-                name = this.readClassNameFromPath(this.srcPath + path, id);
-                this.pathToClassName[path] = name;
-                this.classNameToPath[name] = path;
+            name = ns.substring(0, ns.length - 1) + id;
+            if (!this.classNameToPath[name]) {
+                name = "";
             }
         }
         return name;
     };
 
-    EXMLConfig.prototype.readClassNameFromPath = function (path, id) {
-        var tsText = fs.readFileSync(path, "utf-8");
-        tsText = CodeUtil.removeComment(tsText);
-        var className = "";
-        var superClass;
-        while (tsText.length) {
-            var index = CodeUtil.getFirstVariableIndex("class", tsText);
-            if (index == -1) {
-                break;
-            }
-            var preStr = tsText.substring(0, index);
-            tsText = tsText.substring(index + 5);
-            if (CodeUtil.getFirstVariable(tsText) == id) {
-                index = CodeUtil.getLastVariableIndex("module", preStr);
-                if (index == -1) {
-                    className = id;
-                    break;
-                }
-                preStr = preStr.substring(index + 6);
-                index = preStr.indexOf("{");
-                if (index == -1) {
-                    break;
-                }
-                var ns = preStr.substring(0, index);
-                className = ns.trim() + "." + id;
-                tsText = CodeUtil.removeFirstVariable(tsText);
-                var word = CodeUtil.getFirstVariable(tsText);
-                if (word == "extends") {
-                    tsText = CodeUtil.removeFirstVariable(tsText);
-                    superClass = CodeUtil.getFirstWord(tsText).trim();
-                    if (superClass.charAt(superClass.length - 1) == "{") {
-                        superClass = superClass.substring(0, superClass.length - 1);
-                    }
-                }
-            }
-        }
-        if (className) {
-            var comps = new Component();
-            comps.id = id;
-            comps.className = className;
-            if (superClass) {
-                comps.superClass = superClass;
-            }
-            this.componentDic[className] = comps;
-        }
-        return className;
-    };
-
     /**
-    * 根据id获取文件路径
+    * 检查一个类名是否存在
     */
-    EXMLConfig.prototype.getPathById = function (id, ns) {
-        var className = "";
-        if (!ns || ns == EXMLConfig.W || ns == EXMLConfig.E) {
-            return className;
+    EXMLConfig.prototype.checkClassName = function (className) {
+        if (!className) {
+            return false;
         }
-        className = ns.substring(0, ns.length - 1) + id;
-        var path = className.split(".").join("/");
-        path += ".ts";
-        return path;
+        if (this.componentDic[className]) {
+            return true;
+        }
+        if (this.classNameToPath[className]) {
+            return true;
+        }
+        return false;
     };
 
     /**
@@ -177,15 +160,37 @@ var EXMLConfig = (function () {
     EXMLConfig.prototype.getDefaultPropById = function (id, ns) {
         var className = this.getClassNameById(id, ns);
         var component = this.componentDic[className];
-        while (component) {
-            if (component.defaultProp)
-                break;
-            className = component.superClass;
-            component = this.componentDic[className];
+        if (!component && className) {
+            component = this.findDefaultProp(className);
         }
         if (!component)
             return "";
         return component.defaultProp;
+    };
+
+    EXMLConfig.prototype.findDefaultProp = function (className) {
+        var classData = properties[className];
+        if (!classData) {
+            var path = this.classNameToPath[className];
+            var ext = file.getExtension(path).toLowerCase();
+            var text = file.read(path);
+            if (ext == "ts") {
+                classData = this.getPropertiesFromTs(text, className);
+            } else if (ext == "exml") {
+                classData = this.getPropertiesFromExml(text);
+            }
+            if (classData) {
+                properties[className] = classData;
+            } else {
+                return null;
+            }
+        }
+        var superClass = classData["super"];
+        var component = this.componentDic[superClass];
+        if (!component) {
+            component = this.findDefaultProp(superClass);
+        }
+        return component;
     };
 
     /**
@@ -202,12 +207,14 @@ var EXMLConfig = (function () {
     EXMLConfig.prototype.findType = function (className, prop) {
         var classData = properties[className];
         if (!classData) {
-            var path = this.srcPath + this.classNameToPath[className];
-            if (!fs.existsSync(path)) {
-                return "";
+            var path = this.classNameToPath[className];
+            var ext = file.getExtension(path).toLowerCase();
+            var text = file.read(path);
+            if (ext == "ts") {
+                classData = this.getPropertiesFromTs(text, className);
+            } else if (ext == "exml") {
+                classData = this.getPropertiesFromExml(text);
             }
-            var text = fs.readFileSync(path, "utf-8");
-            classData = this.getProperties(text, className);
             if (classData) {
                 properties[className] = classData;
             } else {
@@ -222,9 +229,26 @@ var EXMLConfig = (function () {
     };
 
     /**
+    * 读取一个exml文件引用的类列表
+    */
+    EXMLConfig.prototype.getPropertiesFromExml = function (text) {
+        var exml = xml.parse(text);
+        if (!exml) {
+            return null;
+        }
+        var superClass = this.getClassNameById(exml.localName, exml.namespace);
+        if (superClass) {
+            var data = {};
+            data["super"] = superClass;
+            return data;
+        }
+        return null;
+    };
+
+    /**
     * 获取属性列表
     */
-    EXMLConfig.prototype.getProperties = function (text, className) {
+    EXMLConfig.prototype.getPropertiesFromTs = function (text, className) {
         index = className.lastIndexOf(".");
         var moduleName = "";
         if (index != -1) {
@@ -286,7 +310,7 @@ var EXMLConfig = (function () {
                 word = CodeUtil.getFirstWord(preStr);
                 if (word) {
                     if (ns && word.indexOf(".") == -1) {
-                        word = ns + "." + word;
+                        word = this.getFullClassName(word, ns);
                     }
                     data["super"] = word;
                 }
@@ -301,7 +325,7 @@ var EXMLConfig = (function () {
                     inter = inter.trim();
                     if (inter) {
                         if (ns && inter.indexOf(".") == -1) {
-                            inter = ns + "." + inter;
+                            inter = this.getFullClassName(inter, ns);
                         }
                         arr[i] = inter;
                     } else {
@@ -318,6 +342,22 @@ var EXMLConfig = (function () {
             break;
         }
         return data;
+    };
+
+    EXMLConfig.prototype.getFullClassName = function (word, ns) {
+        if (!ns) {
+            ns = "";
+        }
+        var nsList = this.classNameToModule[word];
+        var length = nsList.length;
+        var prefix = ns.split(".")[0];
+        for (var k = 0; k < length; k++) {
+            var superNs = nsList[k];
+            if (superNs.split(".")[0] == prefix) {
+                word = superNs + "." + word;
+            }
+        }
+        return word;
     };
 
     EXMLConfig.prototype.readProps = function (text, data, ns) {
@@ -354,7 +394,7 @@ var EXMLConfig = (function () {
                         }
                         type = CodeUtil.trimVariable(type);
                         if (type.indexOf(".") == -1 && this.basicTypes.indexOf(type) == -1) {
-                            type = ns + "." + type;
+                            type = this.getFullClassName(type, ns);
                         }
                         data[word] = type;
                     } else {
@@ -377,7 +417,7 @@ var EXMLConfig = (function () {
                     }
                     type = CodeUtil.trimVariable(type);
                     if (type.indexOf(".") == -1 && this.basicTypes.indexOf(type) == -1) {
-                        type = ns + "." + type;
+                        type = this.getFullClassName(type, ns);
                     }
                     data[word] = type;
                 } else if (!line || firstChar == ";" || firstChar == "=") {

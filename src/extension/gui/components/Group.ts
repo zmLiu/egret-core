@@ -25,13 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/// <reference path="../../../egret/display/DisplayObject.ts"/>
-/// <reference path="../../../egret/display/DisplayObjectContainer.ts"/>
-/// <reference path="supportClasses/GroupBase.ts"/>
-/// <reference path="../core/IContainer.ts"/>
-/// <reference path="../core/IVisualElement.ts"/>
-/// <reference path="../core/IVisualElementContainer.ts"/>
-/// <reference path="../events/ElementExistenceEvent.ts"/>
 
 module egret {
 
@@ -179,15 +172,12 @@ module egret {
 			
 			this.checkForRangeError(index, true);
 			
-			var host:DisplayObject = element.parent; 
-			if (host == <DisplayObject><any>this){
+			var host:any = element.owner;
+			if (host == this||element.parent==this){
 				this.setElementIndex(element, index);
 				return element;
 			}
-			else if (host&&"removeElement" in host){
-				(<IVisualElementContainer><any>host).removeElement(element);
-			}
-			else if(element.owner&&"removeElement" in element.owner){
+			else if(host&&"removeElement" in host){
 				(<IContainer> (element.owner)).removeElement(element);
 			}
 			

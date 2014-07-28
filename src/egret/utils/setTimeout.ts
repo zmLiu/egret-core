@@ -26,17 +26,45 @@
  */
 
 module egret {
-    export function setTimeout(callback:Function, time:number, ...args):any {
-        //考虑要不要所有setTimeout只添加一个侦听
-        var passTime:number = 0;
-        Ticker.getInstance().register(update, callback);
 
-        function update(dt:number):void {
-            passTime += dt;
-            if (passTime >= time) {
-                Ticker.getInstance().unregister(update, callback);
+    var __setTimeout__cache:any = {};
+    var __setTimeout__index:number = 0;
 
-                callback.apply(null, args || null);
+    /**
+     * 在指定的延迟（以毫秒为单位）后运行指定的函数。
+     * @method egret.setTimeout
+     * @param listener {Function}
+     * @param thisObject {any}
+     * @param delay {number}
+     * @param args {any}
+     * @returns {number} 唯一引用
+     */
+    export function setTimeout(listener:Function, thisObject:any, delay:number, ...args):number {
+        var data = {listener: listener, thisObject: thisObject, delay: delay, params: args};
+        if (__setTimeout__index == 0) {
+            Ticker.getInstance().register(timeoutUpdate, null);
+        }
+        __setTimeout__index++;
+        __setTimeout__cache[__setTimeout__index] = data;
+        return __setTimeout__index;
+    }
+
+    /**
+     * 清除指定延迟后运行的函数。
+     * @method egret.clearTimeout
+     * @param key {number}
+     */
+    export function clearTimeout(key:number):void {
+        delete __setTimeout__cache[key];
+    }
+
+    function timeoutUpdate(dt:number):void {
+        for (var key in __setTimeout__cache) {
+            var data = __setTimeout__cache[key];
+            data.delay -= dt;
+            if (data.delay <= 0) {
+                data.listener.apply(data.thisObject, data.params);
+                delete __setTimeout__cache[key];
             }
         }
     }

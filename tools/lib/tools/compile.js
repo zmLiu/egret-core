@@ -107,7 +107,6 @@ function compile(callback, srcPath, output, sourceList, keepGeneratedTypescript)
             typeScriptCompiler(function (code) {
                 cleanTempFile();
                 if (code == 0) {
-                    file.save(crc32FilePath, JSON.stringify(crc32Map));
                     callback(null, srcPath);
                 }
                 else {
@@ -166,7 +165,7 @@ function parseFromCrc32(tsList) {
     }
 
     if (isQuickMode()) {
-        var projectDTS = create_manifest.createProjectDTS(result, path.join(currDir, "src"));
+        var projectDTS = //create_manifest.createProjectDTS(result, path.join(currDir, "src"));
         file.save("game.d.ts", projectDTS);
         result.push(path.join(argv.currDir, "game.d.ts"));
         return result;

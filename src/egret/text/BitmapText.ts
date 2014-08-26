@@ -28,19 +28,38 @@
 
 module egret {
     /**
-     * @class BitmapText
-     * 位图字体采用了Bitmap+SpriteSheet的方式来渲染文字
+	 * @classdesc
+	 * @class egret.BitmapText
+     * 位图字体采用了Bitmap+SpriteSheet的方式来渲染文字。
+	 * @extends egret.DisplayObjectContainer
      */
     export class BitmapText extends DisplayObjectContainer {
 
         /**
          * 设置文本
          */
-        public text:string = "";
+        private _text:string = "";
+        private _textChanged:boolean = false;
 //        private current_rendered_text:string;
+
+
+        public set text(value:string) {
+            this._textChanged = true;
+            this._text = value;
+        }
+
+		/**
+         * 显示的文本内容
+		 * @member {string} egret.BitmapText#text
+         *
+		 */
+        public get text():string {
+            return this._text;
+        }
 
         /**
          * BitmapTextSpriteSheet对象，缓存了所有文本的位图纹理
+		 * @member {egret.BitmapTextSpriteSheet} egret.BitmapText#spriteSheet
          */
         public spriteSheet:BitmapTextSpriteSheet;
 
@@ -55,7 +74,9 @@ module egret {
             if (!this.visible) {
                 return;
             }
-            this._renderText();
+            if (this._textChanged) {
+                this._renderText();
+            }
             super._updateTransform();
         }
 
@@ -63,7 +84,8 @@ module egret {
         public _renderText(forMeasureContentSize:boolean = false):Rectangle {
             var tempW:number = 0;
             var tempH:number = 0;
-            if (!forMeasureContentSize) {
+
+            if (this._textChanged) {
                 this.removeChildren();
             }
             for (var i = 0, l = this.text.length; i < l; i++) {
@@ -76,7 +98,7 @@ module egret {
                 var offsetX = texture._offsetX;
                 var offsetY = texture._offsetY;
                 var characterWidth = texture._textureWidth;
-                if (!forMeasureContentSize) {//todo，不支持换行
+                if (this._textChanged) {//todo，不支持换行
                     var bitmap = this._bitmapPool[i];
                     if (!bitmap) {
                         bitmap = new Bitmap();
@@ -91,6 +113,8 @@ module egret {
                     tempH = offsetY + texture._textureHeight;
                 }
             }
+
+            this._textChanged = false;
             var rect:Rectangle = Rectangle.identity.initialize(0, 0, tempW, tempH);
             return rect;
         }

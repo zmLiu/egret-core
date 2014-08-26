@@ -184,7 +184,7 @@ class EXMLCompiler{
      */
     public compile(xmlData:any,className:string,srcPath:string,exmlPath:string):string{
         if(!this.exmlConfig){
-            this.exmlConfig = new exml_config.EXMLConfig();
+            this.exmlConfig = new exml_config.getInstance();
         }
         this.exmlPath = exmlPath;
         this.currentXML = xmlData;
@@ -692,6 +692,14 @@ class EXMLCompiler{
                 globals.exit(2009,this.exmlPath,this.toXMLString(node));
             }
         }
+        else if(key=="scale9Grid"&&type=="egret.Rectangle"){
+            var rect:Array<any> = value.split(",");
+            if(rect.length!=4||isNaN(parseInt(rect[0]))||isNaN(parseInt(rect[1]))||
+                isNaN(parseInt(rect[2]))||isNaN(parseInt(rect[3]))){
+                globals.exit(2016,this.exmlPath,this.toXMLString(node))
+            }
+            value = "egret.gui.getScale9Grid(\""+value+"\")";
+        }
         else{
             switch(type){
                 case "Class":
@@ -710,15 +718,15 @@ class EXMLCompiler{
                 case "boolean":
                     value = (value=="false"||!value)?"false":"true";
                     break;
-                case "egret.IFactory":
-                    value = "new egret.ClassFactory("+value+")";
+                case "egret.gui.IFactory":
+                    value = "new egret.gui.ClassFactory("+value+")";
                     break;
                 case "string":
                 case "any":
                     value = this.formatString(stringValue);
                     break;
                 default:
-                    globals.exit(2008,this.exmlPath,"string",key,this.toXMLString(node));
+                    globals.exit(2008,this.exmlPath,"string",key+":"+type,this.toXMLString(node));
                     break;
             }
         }
@@ -1052,7 +1060,7 @@ class EXMLCompiler{
      */
     private isIVisualElement(node:any):boolean{
         var className:string = this.exmlConfig.getClassNameById(node.localName,node.namespace);
-        var result:boolean = this.exmlConfig.isInstanceOf(className,"egret.IVisualElement");
+        var result:boolean = this.exmlConfig.isInstanceOf(className,"egret.gui.IVisualElement");
         if(!result){
             return false;
         }
@@ -1460,12 +1468,17 @@ class CpClass extends CodeBase{
         this.sortOn(this.functionBlock,"isGet",true);
 
         var isFirst:boolean = true;
-        var index:number = 0;
+        if(this.moduleName){
+            this.indent = 1;
+        }
+        else{
+            this.indent = 0;
+        }
         var indentStr:string = this.getIndent();
 
         var returnStr:string = "";
         //打印文件引用区域
-        index = 0;
+        var index:number = 0;
         while(index<this.referenceBlock.length){
             var importItem:string = this.referenceBlock[index];
             var path:string = this.getRelativePath(importItem);
@@ -1475,15 +1488,19 @@ class CpClass extends CodeBase{
         if(returnStr)
             returnStr += "\n";
 
+        var exportStr:string = "";
         //打印包名
-        returnStr += KeyWords.KW_MODULE+" "+this.moduleName+"{\n";
+        if(this.moduleName){
+            returnStr += KeyWords.KW_MODULE+" "+this.moduleName+"{\n";
+            exportStr = KeyWords.KW_EXPORT+" ";
+        }
 
         //打印注释
         if(this.notation!=null){
             this.notation.indent = this.indent;
             returnStr += this.notation.toCode()+"\n";
         }
-        returnStr += indentStr+KeyWords.KW_EXPORT+" "+KeyWords.KW_CLASS+" "+this.className;
+        returnStr += indentStr+exportStr+KeyWords.KW_CLASS+" "+this.className;
 
         //打印父类
         if(this.superClass!=null&&this.superClass!=""){
@@ -1514,6 +1531,7 @@ class CpClass extends CodeBase{
         index = 0;
         while(this.variableBlock.length>index){
             var variableItem:CodeBase = this.variableBlock[index];
+            variableItem.indent = this.indent + 1;
             returnStr += variableItem.toCode()+"\n";
             index++;
         }
@@ -1550,17 +1568,19 @@ class CpClass extends CodeBase{
         }
         returnStr += this.getIndent(this.indent+1)+"}\n\n";
 
-
         //打印函数列表
         index = 0;
         while(this.functionBlock.length>index){
             var functionItem:CodeBase = this.functionBlock[index];
+            functionItem.indent = this.indent+1;
             returnStr += functionItem.toCode()+"\n";
             index++;
         }
 
-        returnStr += indentStr+"}\n}";
-
+        returnStr += indentStr+"}";
+        if(this.moduleName){
+            returnStr += "\n}";
+        }
         return returnStr;
     }
 
@@ -1918,7 +1938,7 @@ class CpState extends CodeBase{
 
     public toCode():string{
         var indentStr:string = this.getIndent(1);
-        var returnStr:string = "new egret.State (\""+this.name+"\",\n"+indentStr+"[\n";
+        var returnStr:string = "new egret.gui.State (\""+this.name+"\",\n"+indentStr+"[\n";
         var index:number = 0;
         var isFirst:boolean = true;
         var overrides:Array<any> = this.addItems.concat(this.setProperty);
@@ -1973,7 +1993,7 @@ class CpAddItems extends CodeBase{
 
     public toCode():string{
         var indentStr:string = this.getIndent(1);
-        var returnStr:string = "new egret.AddItems(\""+this.target+"\",\""+this.propertyName+"\",\""+this.position+"\",\""+this.relativeTo+"\")";
+        var returnStr:string = "new egret.gui.AddItems(\""+this.target+"\",\""+this.propertyName+"\",\""+this.position+"\",\""+this.relativeTo+"\")";
         return returnStr;
     }
 }
@@ -2003,7 +2023,7 @@ class CpSetProperty extends CodeBase{
 
     public toCode():string{
         var indentStr:string = this.getIndent(1);
-        return "new egret.SetProperty(\""+this.target+"\",\""+this.name+"\","+this.value+")";
+        return "new egret.gui.SetProperty(\""+this.target+"\",\""+this.name+"\","+this.value+")";
     }
 }
 

@@ -80,6 +80,8 @@ class EXMLConfig{
      */
     public componentDic:any = {};
 
+    public idMap:any = {};
+
     private parseModules():void{
         this.classNameToModule = {};
         for(var className in this.classNameToPath){
@@ -93,7 +95,7 @@ class EXMLConfig{
             if(!list){
                 list = this.classNameToModule[className] = [];
             }
-            if(list.indexOf(ns)==-1){ 
+            if(ns&&list.indexOf(ns)==-1){
                 list.push(ns);
             }
         }
@@ -109,9 +111,11 @@ class EXMLConfig{
             var item:any = children[i];
             var component:Component = new Component(item);
             this.componentDic[component.className] = component;
+            this.idMap[component.id] = component.className;
         }
         for(var className in this.componentDic){
             var component:Component = this.componentDic[className];
+
             if(!component.defaultProp)
                 this.findProp(component);
         }
@@ -144,10 +148,7 @@ class EXMLConfig{
 
         }
         else if(!ns||ns==EXMLConfig.E){
-            name = "egret."+id;
-            if(!this.componentDic[name]){
-                name = "";
-            }
+            name = this.idMap[id];
         }
         else{
             name = ns.substring(0,ns.length-1)+id
@@ -193,7 +194,7 @@ class EXMLConfig{
             var ext:string = file.getExtension(path).toLowerCase();
             var text:string = file.read(path);
             if(ext=="ts"){
-                classData = this.getPropertiesFromTs(text,className);
+                classData = this.getPropertiesFromTs(text,className,"");
             }
             else if(ext=="exml"){
                 classData = this.getPropertiesFromExml(text);
@@ -231,7 +232,8 @@ class EXMLConfig{
             var ext:string = file.getExtension(path).toLowerCase();
             var text:string = file.read(path);
             if(ext=="ts"){
-                classData = this.getPropertiesFromTs(text,className);
+                text = CodeUtil.removeComment(text,path);
+                classData = this.getPropertiesFromTs(text,className,"");
             }
             else if(ext=="exml"){
                 classData = this.getPropertiesFromExml(text);
@@ -270,7 +272,7 @@ class EXMLConfig{
     /**
      * 获取属性列表
      */
-    private getPropertiesFromTs(text:string,className:string):any {
+    private getPropertiesFromTs(text:string,className:string,nsPrefiex:string):any {
         index = className.lastIndexOf(".");
         var moduleName:string = "";
         if (index != -1) {
@@ -278,7 +280,6 @@ class EXMLConfig{
             className = className.substring(index+1);
         }
         var data:any;
-        text = CodeUtil.removeComment(text);
         if(moduleName){
             while(text.length>0){
                 var index:number = CodeUtil.getFirstVariableIndex("module",text);
@@ -291,20 +292,35 @@ class EXMLConfig{
                     continue;
                 }
                 var ns:string = text.substring(0,index).trim();
-                if(ns==moduleName){
-                    index = CodeUtil.getBracketEndIndex(text);
-                    if(index!=-1){
-                        var block:string = text.substring(0,index);
-                        index = block.indexOf("{");
-                        block = block.substring(index+1);
-                        data = this.getPropFromBlock(block,className,moduleName);
-                    }
+                text = text.substring(index);
+                index = CodeUtil.getBracketEndIndex(text);
+                if(index==-1) {
                     break;
+                }
+                var block:string = text.substring(0,index);
+                text = text.substring(index);
+                if(ns==moduleName){
+                    if(nsPrefiex) {
+                        ns = nsPrefiex+"."+moduleName;
+                    }
+                    data = this.getPropFromBlock(block,className,ns);
+                    break;
+                }
+                else if(moduleName.indexOf(ns)==0&&moduleName.charAt(ns.length)=="."){
+                    var tail:string = moduleName.substring(ns.length+1);
+                    var prefix:string = moduleName.substring(0,ns.length);
+                    if(nsPrefiex){
+                        prefix = nsPrefiex+"."+prefix;
+                    }
+                    data = this.getPropertiesFromTs(block,tail+"."+className,prefix);
+                    if(data) {
+                        break;
+                    }
                 }
             }
         }
         else{
-            data = this.getPropFromBlock(text,className,"");
+            data = this.getPropFromBlock(text,className,nsPrefiex);
         }
 
         return data;
@@ -332,9 +348,7 @@ class EXMLConfig{
                 preStr = CodeUtil.removeFirstVariable(preStr);
                 word = CodeUtil.getFirstWord(preStr);
                 if(word){
-                    if(ns&&word.indexOf(".")==-1){
-                        word = this.getFullClassName(word,ns);
-                    }
+                    word = this.getFullClassName(word,ns);
                     data["super"] = word;
                 }
                 preStr = CodeUtil.removeFirstWord(preStr);
@@ -347,9 +361,7 @@ class EXMLConfig{
                     var inter:string = arr[i];
                     inter = inter.trim();
                     if(inter){
-                        if(ns&&inter.indexOf(".")==-1){
-                            inter = this.getFullClassName(inter,ns);
-                        }
+                        inter = this.getFullClassName(inter,ns);
                         arr[i] = inter;
                     }
                     else{
@@ -367,19 +379,47 @@ class EXMLConfig{
         }
         return data;
     }
-
-    private getFullClassName(word:string,ns:string):string{
-        if(!ns){
-            ns = "";
+    /**
+     * 根据类类短名，和这个类被引用的时所在的module名来获取完整类名。
+     */
+    private getFullClassName(word:string,ns:string):string {
+        if (!ns||!word) {
+            return word;
         }
-        var nsList = this.classNameToModule[word];
+        var prefix:string = "";
+        var index:number = word.lastIndexOf(".");
+        var nsList;
+        if(index==-1){
+            nsList = this.classNameToModule[word];
+        }
+        else{
+            prefix = word.substring(0,index);
+            nsList = this.classNameToModule[word.substring(index+1)];
+        }
+        if(!nsList){
+            return word;
+        }
         var length = nsList.length;
-        var prefix = ns.split(".")[0];
+        var targetNs = "";
         for(var k=0;k<length;k++){
             var superNs = nsList[k];
-            if(superNs.split(".")[0]==prefix){
-                word = superNs+"."+word;
+            if(prefix){
+                var tail:string = superNs.substring(superNs.length-prefix.length);
+                if(tail==prefix){
+                    superNs = superNs.substring(0,superNs.length-prefix.length-1);
+                }
+                else{
+                    continue;
+                }
             }
+            if(ns.indexOf(superNs)==0){
+                if(superNs.length>targetNs.length){
+                    targetNs = superNs;
+                }
+            }
+        }
+        if(targetNs){
+            word = targetNs+"."+word;
         }
         return word;
     }
@@ -421,7 +461,7 @@ class EXMLConfig{
                             type = type.substring(0,index);
                         }
                         type = CodeUtil.trimVariable(type);
-                        if(type.indexOf(".")==-1&&this.basicTypes.indexOf(type)==-1){
+                        if(this.basicTypes.indexOf(type)==-1){
                             type = this.getFullClassName(type,ns);
                         }
                         data[word] = type;
@@ -447,7 +487,7 @@ class EXMLConfig{
                         type = type.substring(0,index);
                     }
                     type = CodeUtil.trimVariable(type);
-                    if(type.indexOf(".")==-1&&this.basicTypes.indexOf(type)==-1){
+                    if(this.basicTypes.indexOf(type)==-1){
                         type = this.getFullClassName(type,ns);
                     }
                     data[word] = type;
@@ -494,9 +534,9 @@ class Component{
     public constructor(item?:any){
         if(item){
             this.id = item.$id;
-            this.className = "egret."+this.id;
+            this.className = item["$module"] +"."+ this.id;
             if(item["$super"])
-                this.superClass = "egret."+item.$super;
+                this.superClass = item.$super;
             if(item["$default"])
                 this.defaultProp = item.$default;
         }
@@ -519,4 +559,13 @@ class Component{
     public defaultProp:string = "";
 }
 
+var exmlConfig:EXMLConfig;
+function getInstance():EXMLConfig{
+    if(!exmlConfig){
+        exmlConfig = new EXMLConfig();
+    }
+    return exmlConfig;
+}
+
 exports.EXMLConfig = EXMLConfig;
+exports.getInstance = getInstance;

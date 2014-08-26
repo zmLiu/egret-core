@@ -356,15 +356,18 @@ function trimVariableRight(str) {
     return str;
 }
 
+var removeCommentCache = {};
 /**
 * 移除代码注释和字符串常量
 */
-function removeComment(codeText) {
+function removeComment(codeText,path) {
 
-
+    if(path&&removeCommentCache[path]){
+        return removeCommentCache[path];
+    }
     //performance optimize
-    var result = codeText.replace(/(?:^|\n|\r)\s*\/\*[\s\S]*?\*\/\s*(?:\r|\n|$)/g, '\n').replace(/(?:^|\n|\r)\s*\/\/.*(?:\r|\n|$)/g, '\n');
-    return result;
+//    var result = codeText.replace(/(?:^|\n|\r)\s*\/\*[\s\S]*?\*\/\s*(?:\r|\n|$)/g, '\n').replace(/(?:^|\n|\r)\s*\/\/.*(?:\r|\n|$)/g, '\n');
+//    return result;
 
     var NBSP = "";
     var trimText = "";
@@ -379,7 +382,7 @@ function removeComment(codeText) {
         var squoteIndex = codeText.indexOf("'");
         if (squoteIndex == -1)
             squoteIndex = Number.MAX_VALUE;
-        var commentIndex = codeText.indexOf("/**");
+        var commentIndex = codeText.indexOf("/*");
         if (commentIndex == -1)
             commentIndex = Number.MAX_VALUE;
         var lineCommonentIndex = codeText.indexOf("//");
@@ -424,6 +427,9 @@ function removeComment(codeText) {
     codeText = trimText.split("\v0\v").join("\\\\");
     codeText = codeText.split("\v1\v").join("\\\"");
     codeText = codeText.split("\v2\v").join("\\\'");
+    if(path){
+        removeCommentCache[path] = codeText;
+    }
     return codeText;
 }
 

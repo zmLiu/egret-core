@@ -59,14 +59,15 @@ module egret {
         }
 
         /**
-         * 绘制一个矩形。
+         * 绘制一个矩形
          * @method egret.Graphics#drawRect
-         * @param x {number} 一个表示相对于父显示对象注册点的水平位置的数字（以像素为单位）。
-         * @param y {number} 一个表示相对于父显示对象注册点的垂直位置的数字（以像素为单位）。
+         * @param x {number} 圆心相对于父显示对象注册点的 x 位置（以像素为单位）。
+         * @param y {number} 相对于父显示对象注册点的圆心的 y 位置（以像素为单位）。
          * @param width {number} 矩形的宽度（以像素为单位）。
          * @param height {number} 矩形的高度（以像素为单位）。
+         * @param r? {number} 圆的半径（以像素为单位）,不设置就为直角矩形。
          */
-        public drawRect(x:number, y:number, width:number, height:number):void {
+        public drawRect(x:number, y:number, width:number, height:number):void{
 
         }
 
@@ -78,6 +79,32 @@ module egret {
          * @param r {number} 圆的半径（以像素为单位）。
          */
         public drawCircle(x:number, y:number, r:number):void {
+
+        }
+
+        /**
+         * 绘制一个圆角矩形
+         * @method egret.Graphics#drawRect
+         * @param x {number} 圆心相对于父显示对象注册点的 x 位置（以像素为单位）。
+         * @param y {number} 相对于父显示对象注册点的圆心的 y 位置（以像素为单位）。
+         * @param width {number} 矩形的宽度（以像素为单位）。
+         * @param height {number} 矩形的高度（以像素为单位）。
+         * @param ellipseWidth {number} 用于绘制圆角的椭圆的宽度（以像素为单位）。
+         * @param ellipseHeight {number} 用于绘制圆角的椭圆的高度（以像素为单位）。 （可选）如果未指定值，则默认值与为 ellipseWidth 参数提供的值相匹配。
+         */
+        public drawRoundRect(x:number, y:number, width:number, height:number, ellipseWidth:number, ellipseHeight?:number):void{
+
+        }
+
+        /**
+         * 绘制一个椭圆。
+         * @method egret.Graphics#drawEllipse
+         * @param x {number} 一个表示相对于父显示对象注册点的水平位置的数字（以像素为单位）。
+         * @param y {number} 一个表示相对于父显示对象注册点的垂直位置的数字（以像素为单位）。
+         * @param width {number} 矩形的宽度（以像素为单位）。
+         * @param height {number} 矩形的高度（以像素为单位）。
+         */
+        public drawEllipse(x:number, y:number, width:number, height:number):void{
 
         }
 
@@ -98,7 +125,7 @@ module egret {
         }
 
         /**
-         * 使用当前线条样式绘制一条从当前绘图位置开始到 (x, y) 结束的直线；当前绘图位置随后会设置为 (x, y)。如果正在其中绘制的显示对象包含用 Flash 绘图工具创建的内容，则调用 lineTo() 方法将在该内容下面进行绘制。如果在对 moveTo() 方法进行任何调用之前调用了 lineTo()，则当前绘图的默认位置为 (0, 0)。如果缺少任何一个参数，则此方法将失败，并且当前绘图位置不改变。
+         * 使用当前线条样式绘制一条从当前绘图位置开始到 (x, y) 结束的直线；当前绘图位置随后会设置为 (x, y)。
          * @method egret.Graphics#lineTo
          * @param x {number} 一个表示相对于父显示对象注册点的水平位置的数字（以像素为单位）。
          * @param y {number} 一个表示相对于父显示对象注册点的垂直位置的数字（以像素为单位）。
@@ -108,7 +135,7 @@ module egret {
         }
 
         /**
-         * 使用当前线条样式和由 (controlX, controlY) 指定的控制点绘制一条从当前绘图位置开始到 (anchorX, anchorY) 结束的二次贝塞尔曲线。当前绘图位置随后设置为 (anchorX, anchorY)。如果正在其中绘制的影片剪辑包含用 Flash 绘图工具创建的内容，则调用 curveTo() 方法将在该内容下面进行绘制。
+         * 使用当前线条样式和由 (controlX, controlY) 指定的控制点绘制一条从当前绘图位置开始到 (anchorX, anchorY) 结束的二次贝塞尔曲线。当前绘图位置随后设置为 (anchorX, anchorY)。
          * 如果在调用 moveTo() 方法之前调用了 curveTo() 方法，则当前绘图位置的默认值为 (0, 0)。如果缺少任何一个参数，则此方法将失败，并且当前绘图位置不改变。
          * 绘制的曲线是二次贝塞尔曲线。二次贝塞尔曲线包含两个锚点和一个控制点。该曲线内插这两个锚点，并向控制点弯曲。
          * @method egret.Graphics#curveTo
@@ -140,7 +167,7 @@ module egret {
         }
 
         /**
-         * 对从上一次调用 beginFill()、beginGradientFill() 或 beginBitmapFill() 方法之后添加的直线和曲线应用填充。Flash 使用的是对 beginFill()、beginGradientFill() 或 beginBitmapFill() 方法的先前调用中指定的填充。如果当前绘图位置不等于 moveTo() 方法中指定的上一个位置，而且定义了填充，则用线条闭合该路径，然后进行填充。
+         * 对从上一次调用 beginFill()方法之后添加的直线和曲线应用填充。
          * @method egret.Graphics#endFill
          */
         public endFill():void {

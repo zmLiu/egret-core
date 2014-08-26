@@ -153,6 +153,8 @@ module egret {
                 }
             }
 
+            child._setDirty();
+            this._setSizeDirty();
             return child;
         }
 
@@ -204,6 +206,9 @@ module egret {
             }
             child._parentChanged(null);
             locChildren.splice(index, 1);
+
+            this._setSizeDirty();
+
             return child;
         }
 
@@ -360,12 +365,13 @@ module egret {
         }
 
         /**
+         * 检测指定坐标是否在显示对象内
 		 * @method egret.DisplayObjectContainer#hitTest
          * @see egret.DisplayObject.hitTest
-         * @param x {number} 
-         * @param y {number} 
-		 * @param ignoreTouchEnabled {boolean} 
-		 * @returns {egret.DisplayObject}
+         * @param x {number} 检测坐标的x轴
+         * @param y {number} 检测坐标的y轴
+		 * @param ignoreTouchEnabled {boolean} 是否忽略TouchEnabled
+		 * @returns {egret.DisplayObject} 返回所发生碰撞的DisplayObject对象
          */
         public hitTest(x:number, y:number, ignoreTouchEnabled:boolean = false):DisplayObject{
             var result:DisplayObject;
@@ -373,7 +379,8 @@ module egret {
                 return null;
             }
             if (this._scrollRect) {
-                if (x > this._scrollRect.width
+                if (x < 0 || y < 0
+                    || x > this._scrollRect.width
                     || y > this._scrollRect.height) {
                     return null;
                 }

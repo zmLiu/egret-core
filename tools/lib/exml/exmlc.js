@@ -141,7 +141,7 @@ var EXMLCompiler = (function () {
     */
     EXMLCompiler.prototype.compile = function (xmlData, className, srcPath, exmlPath) {
         if (!this.exmlConfig) {
-            this.exmlConfig = new exml_config.EXMLConfig();
+            this.exmlConfig = new exml_config.getInstance();
         }
         this.exmlPath = exmlPath;
         this.currentXML = xmlData;
@@ -632,6 +632,12 @@ var EXMLCompiler = (function () {
             } else {
                 globals.exit(2009, this.exmlPath, this.toXMLString(node));
             }
+        } else if (key == "scale9Grid" && type == "egret.Rectangle") {
+            var rect = value.split(",");
+            if (rect.length != 4 || isNaN(parseInt(rect[0])) || isNaN(parseInt(rect[1])) || isNaN(parseInt(rect[2])) || isNaN(parseInt(rect[3]))) {
+                globals.exit(2016, this.exmlPath, this.toXMLString(node));
+            }
+            value = "egret.gui.getScale9Grid(\"" + value + "\")";
         } else {
             switch (type) {
                 case "Class":
@@ -650,8 +656,8 @@ var EXMLCompiler = (function () {
                 case "boolean":
                     value = (value == "false" || !value) ? "false" : "true";
                     break;
-                case "egret.IFactory":
-                    value = "new egret.ClassFactory(" + value + ")";
+                case "egret.gui.IFactory":
+                    value = "new egret.gui.ClassFactory(" + value + ")";
                     break;
                 case "string":
                 case "any":
@@ -986,7 +992,7 @@ var EXMLCompiler = (function () {
     */
     EXMLCompiler.prototype.isIVisualElement = function (node) {
         var className = this.exmlConfig.getClassNameById(node.localName, node.namespace);
-        var result = this.exmlConfig.isInstanceOf(className, "egret.IVisualElement");
+        var result = this.exmlConfig.isInstanceOf(className, "egret.gui.IVisualElement");
         if (!result) {
             return false;
         }
@@ -1387,13 +1393,17 @@ var CpClass = (function (_super) {
         this.sortOn(this.functionBlock, "isGet", true);
 
         var isFirst = true;
-        var index = 0;
+        if (this.moduleName) {
+            this.indent = 1;
+        } else {
+            this.indent = 0;
+        }
         var indentStr = this.getIndent();
 
         var returnStr = "";
 
         //打印文件引用区域
-        index = 0;
+        var index = 0;
         while (index < this.referenceBlock.length) {
             var importItem = this.referenceBlock[index];
             var path = this.getRelativePath(importItem);
@@ -1403,15 +1413,20 @@ var CpClass = (function (_super) {
         if (returnStr)
             returnStr += "\n";
 
+        var exportStr = "";
+
         //打印包名
-        returnStr += KeyWords.KW_MODULE + " " + this.moduleName + "{\n";
+        if (this.moduleName) {
+            returnStr += KeyWords.KW_MODULE + " " + this.moduleName + "{\n";
+            exportStr = KeyWords.KW_EXPORT + " ";
+        }
 
         //打印注释
         if (this.notation != null) {
             this.notation.indent = this.indent;
             returnStr += this.notation.toCode() + "\n";
         }
-        returnStr += indentStr + KeyWords.KW_EXPORT + " " + KeyWords.KW_CLASS + " " + this.className;
+        returnStr += indentStr + exportStr + KeyWords.KW_CLASS + " " + this.className;
 
         //打印父类
         if (this.superClass != null && this.superClass != "") {
@@ -1441,6 +1456,7 @@ var CpClass = (function (_super) {
         index = 0;
         while (this.variableBlock.length > index) {
             var variableItem = this.variableBlock[index];
+            variableItem.indent = this.indent + 1;
             returnStr += variableItem.toCode() + "\n";
             index++;
         }
@@ -1480,12 +1496,15 @@ var CpClass = (function (_super) {
         index = 0;
         while (this.functionBlock.length > index) {
             var functionItem = this.functionBlock[index];
+            functionItem.indent = this.indent + 1;
             returnStr += functionItem.toCode() + "\n";
             index++;
         }
 
-        returnStr += indentStr + "}\n}";
-
+        returnStr += indentStr + "}";
+        if (this.moduleName) {
+            returnStr += "\n}";
+        }
         return returnStr;
     };
     return CpClass;
@@ -1822,7 +1841,7 @@ var CpState = (function (_super) {
 
     CpState.prototype.toCode = function () {
         var indentStr = this.getIndent(1);
-        var returnStr = "new egret.State (\"" + this.name + "\",\n" + indentStr + "[\n";
+        var returnStr = "new egret.gui.State (\"" + this.name + "\",\n" + indentStr + "[\n";
         var index = 0;
         var isFirst = true;
         var overrides = this.addItems.concat(this.setProperty);
@@ -1858,7 +1877,7 @@ var CpAddItems = (function (_super) {
     }
     CpAddItems.prototype.toCode = function () {
         var indentStr = this.getIndent(1);
-        var returnStr = "new egret.AddItems(\"" + this.target + "\",\"" + this.propertyName + "\",\"" + this.position + "\",\"" + this.relativeTo + "\")";
+        var returnStr = "new egret.gui.AddItems(\"" + this.target + "\",\"" + this.propertyName + "\",\"" + this.position + "\",\"" + this.relativeTo + "\")";
         return returnStr;
     };
     return CpAddItems;
@@ -1874,7 +1893,7 @@ var CpSetProperty = (function (_super) {
     }
     CpSetProperty.prototype.toCode = function () {
         var indentStr = this.getIndent(1);
-        return "new egret.SetProperty(\"" + this.target + "\",\"" + this.name + "\"," + this.value + ")";
+        return "new egret.gui.SetProperty(\"" + this.target + "\",\"" + this.name + "\"," + this.value + ")";
     };
     return CpSetProperty;
 })(CodeBase);

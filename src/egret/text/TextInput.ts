@@ -29,28 +29,18 @@
 module egret {
     export class TextInput extends DisplayObject {
 
-        private _domInputSprite;
-        private _edTxt;
-        private _delegate:TextInputDegelete;
-        private _placeholderText:string = "";
-        private _edFontSize:number = 14;
-        private _textColor:number = 0xff0000;
-        private _placeholderFontSize = 14;
-        private _placeholderColor:number = 0xffff00;
-
-        private _preX:number = 0;
-        private _preY:number = 0;
-
-
         private stageText:egret.StageText;
+
+        constructor() {
+            super();
+            this.stageText = new egret.StageText();
+            var point = this.localToGlobal();
+            this.stageText._open(point.x, point.y, this._explicitWidth, this._explicitHeight);
+        }
 
         public _onAddToStage():void {
             super._onAddToStage();
-            var point = this.localToGlobal();
-            var stageText = new egret.StageText();
-            stageText._open(point.x, point.y,this._explicitWidth,this._explicitHeight);
             this.addEventListener(egret.TouchEvent.TOUCH_BEGIN, this.onMouseDownHandler, this);
-            this.stageText = stageText;
         }
 
         public setText(value:string):void {
@@ -70,7 +60,6 @@ module egret {
         }
 
 
-
         private onMouseDownHandler(event:TouchEvent) {
 
         }
@@ -87,20 +76,63 @@ module egret {
             //它不能被点击
             return null;
         }
-    }
 
-    export class TextInputDegelete {
-
-        public editBoxEditingDidBegin(sender) {
+        public _updateTransform():void {
+            //todo 等待worldTransform的性能优化完成，合并这块代码
+            var oldTransFormA = this._worldTransform.a;
+            var oldTransFormB = this._worldTransform.b;
+            var oldTransFormC = this._worldTransform.c;
+            var oldTransFormD = this._worldTransform.d;
+            var oldTransFormTx = this._worldTransform.tx;
+            var oldTransFormTy = this._worldTransform.ty;
+            super._updateTransform();
+            var newTransForm = this._worldTransform;
+            if (oldTransFormA != newTransForm.a ||
+                oldTransFormB != newTransForm.b ||
+                oldTransFormC != newTransForm.c ||
+                oldTransFormD != newTransForm.d ||
+                oldTransFormTx != newTransForm.tx ||
+                oldTransFormTy != newTransForm.ty) {
+                var point = this.localToGlobal();
+                this.stageText.changePosition(point.x, point.y);
+                this.stageText.changeSize(this._explicitWidth, this._explicitHeight);
+            }
         }
 
-        public editBoxEditingDidEnd(sender) {
+        /**
+         * 字号
+         * @member {number} egret.TextField#size
+         */
+        public _size:number = 30;
+
+        public get size():number {
+            return this._size;
         }
 
-        public editBoxTextChanged(sender, text) {
+        public set size(value:number) {
+            if (this._size != value) {
+                this._size = value;
+                this.stageText.setSize(this._size);
+            }
         }
 
-        public editBoxReturn(sender) {
+        public _textColorString:string = "#FFFFFF";
+
+        private _textColor:number = 0xFFFFFF;
+        /**
+         * 文字颜色
+         * @member {number} egret.TextField#textColor
+         */
+        public get textColor():number {
+            return this._textColor;
+        }
+
+        public set textColor(value:number) {
+            if (this._textColor != value) {
+                this._textColor = value;
+                this._textColorString = toColorString(value);
+                this.stageText.setTextColor(this._textColorString);
+            }
         }
     }
 }

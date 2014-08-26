@@ -12,45 +12,24 @@ var create_app = require("./create_app.js");
 
 
 function run(dir, args, opts) {
+
+
     var needCompileEngine = opts["-e"];
     var keepGeneratedTypescript = opts["-k"];
 
     var currDir = globals.joinEgretDir(dir, args[0]);
-
+    globals.checkVersion(currDir);
     var task = [];
 
+    var runtime = param.getOption(opts, "--runtime", ["html5", "native"]);
+
     if (needCompileEngine) {
-        var egretSourceList = [];
-        task.push(
-            function (callback) {
-                var runtime = param.getOption(opts, "--runtime", ["html5", "native"]);
-                egretSourceList = compiler.generateEgretFileList(runtime, currDir);
-                compiler.compile(callback,
-                    path.join(param.getEgretPath(), "src"),
-                    path.join(currDir, "bin-debug/lib"),
-                    egretSourceList,
-                    false
-                );
-            },
 
-            function (callback) {
-                compiler.exportHeader(callback,
-                    currDir,
-                    egretSourceList
-                );
-
-            }
-        );
+        task.push(function (callback) {
+            compiler.compileModules(callback, currDir,runtime);
+        });
     }
-    else {
-        var exist = file.exists(file.joinPath(currDir, "bin-debug", "lib"));
-        if (!exist) {
-            globals.exit(1102)
-        }
-    }
-
     task.push(
-
         function (callback) {
             buildProject(callback, currDir, keepGeneratedTypescript);
         },
@@ -62,6 +41,7 @@ function run(dir, args, opts) {
         }
     )
 
+
     async.series(task, function (err) {
         if (!err) {
             globals.log("构建成功");
@@ -70,8 +50,6 @@ function run(dir, args, opts) {
             globals.exit(err);
         }
     })
-
-
 }
 
 function buildProject(callback, currDir, keepGeneratedTypescript) {
@@ -83,16 +61,18 @@ function buildProject(callback, currDir, keepGeneratedTypescript) {
     }
 
     var libsPath = path.join(currDir, "libs/");
-    var sourceList = compiler.generateGameFileList(currDir);
-    var dts = generateExmlDTS(sourceList,path.join(currDir, "src"));
-    var exmlDtsPath = path.join(currDir, "libs","exml.d.ts");
-    if(dts){
-        file.save(exmlDtsPath,dts);
+    var srcPath = path.join(currDir, "src/");
+    var exmlList = file.search(srcPath,"exml");
+    var dts = generateExmlDTS(exmlList, srcPath);
+    var exmlDtsPath = path.join(currDir, "libs", "exml.d.ts");
+    if (dts) {
+        file.save(exmlDtsPath, dts);
     }
-    else{
+    else {
         file.remove(exmlDtsPath);
     }
     var libs = file.search(libsPath, "d.ts");
+    var sourceList = compiler.generateGameFileList(currDir);
     compiler.compile(callback,
         path.join(currDir, "src"),
         path.join(currDir, "bin-debug/src"),
@@ -102,7 +82,7 @@ function buildProject(callback, currDir, keepGeneratedTypescript) {
 
 }
 
-function generateExmlDTS(sourceList,srcPath){
+function generateExmlDTS(sourceList, srcPath) {
     srcPath = srcPath.split("\\").join("/");
     if (srcPath.charAt(srcPath.length - 1) != "/") {
         srcPath += "/";
@@ -116,16 +96,16 @@ function generateExmlDTS(sourceList,srcPath){
         }
         var ext = file.getExtension(p).toLowerCase();
         if (ext == "exml") {
-            var className = p.substring(srcPath.length,p.length-5);
+            var className = p.substring(srcPath.length, p.length - 5);
             className = className.split("/").join(".");
             var index = className.lastIndexOf(".");
-            if(index==-1){
-                dts += "declare class "+className+" extends egret.Skin{\n}\n";
+            if (index == -1) {
+                dts += "declare class " + className + " extends egret.gui.Skin{\n}\n";
             }
-            else{
-                var moduleName = className.substring(0,index);
-                className = className.substring(index+1);
-                dts += "declare module "+moduleName+"{\n\tclass "+className+" extends egret.Skin{\n\t}\n}\n";
+            else {
+                var moduleName = className.substring(0, index);
+                className = className.substring(index + 1);
+                dts += "declare module " + moduleName + "{\n\tclass " + className + " extends egret.gui.Skin{\n\t}\n}\n";
             }
         }
     }

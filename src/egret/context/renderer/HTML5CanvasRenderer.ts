@@ -52,7 +52,7 @@ module egret {
 
         private blendValue:string;
 
-        constructor(canvas) {
+        public constructor(canvas) {
             this.canvas = canvas;
             this.canvasContext = canvas.getContext("2d");
             var f = this.canvasContext.setTransform;
@@ -78,7 +78,7 @@ module egret {
             super();
         }
 
-        clearScreen() {
+        public clearScreen() {
             this.setTransform(egret.Matrix.identity.identity());
             var list = RenderFilter.getInstance().getDrawAreaList();
             for (var i:number = 0 , l:number = list.length; i < l; i++) {
@@ -88,11 +88,11 @@ module egret {
             this.renderCost = 0;
         }
 
-        clearRect(x:number, y:number, w:number, h:number) {
+        public clearRect(x:number, y:number, w:number, h:number) {
             this.canvasContext.clearRect(x, y, w, h);
         }
 
-        drawImage(texture:Texture, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight) {
+        public drawImage(texture:Texture, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight) {
             sourceX = sourceX / egret.MainContext.instance.rendererContext.texture_scale_factor;
             sourceY = sourceY / egret.MainContext.instance.rendererContext.texture_scale_factor;
             sourceWidth = sourceWidth / egret.MainContext.instance.rendererContext.texture_scale_factor;
@@ -109,7 +109,7 @@ module egret {
             this.renderCost += egret.getTimer() - beforeDraw;
         }
 
-        setTransform(matrix:egret.Matrix) {
+        public setTransform(matrix:egret.Matrix) {
             //在没有旋转缩放斜切的情况下，先不进行矩阵偏移，等下次绘制的时候偏移
             if (matrix.a == 1 && matrix.b == 0 && matrix.c == 0 && matrix.d == 1
                 && this._matrixA == 1 && this._matrixB == 0 && this._matrixC == 0 && this._matrixD == 1) {
@@ -124,21 +124,21 @@ module egret {
             }
         }
 
-        setAlpha(alpha:number, blendMode:egret.BlendMode) {
+        public setAlpha(alpha:number, blendMode:string) {
             if (alpha != this.canvasContext.globalAlpha) {
                 this.canvasContext.globalAlpha = alpha;
             }
             if (blendMode) {
-                this.blendValue = blendMode.value;
-                this.canvasContext.globalCompositeOperation = blendMode.value;
+                this.blendValue = blendMode;
+                this.canvasContext.globalCompositeOperation = blendMode;
             }
-            else if (this.blendValue != egret.BlendMode.NORMAL.value) {
-                this.blendValue = egret.BlendMode.NORMAL.value;
-                this.canvasContext.globalCompositeOperation = egret.BlendMode.NORMAL.value;
+            else if (this.blendValue != egret.BlendMode.NORMAL) {
+                this.blendValue = egret.BlendMode.NORMAL;
+                this.canvasContext.globalCompositeOperation = egret.BlendMode.NORMAL;
             }
         }
 
-        setupFont(textField:TextField):void {
+        public setupFont(textField:TextField):void {
             var ctx = this.canvasContext;
             var font:string = textField.italic ? "italic " : "normal ";
             font += textField.bold ? "bold " : "normal ";
@@ -149,13 +149,13 @@ module egret {
         }
 
 
-        measureText(text:string):number {
+        public measureText(text:string):number {
             var result = this.canvasContext.measureText(text);
             return result.width;
         }
 
 
-        drawText(textField:egret.TextField, text:string, x:number, y:number, maxWidth:number) {
+        public drawText(textField:egret.TextField, text:string, x:number, y:number, maxWidth:number) {
             var textColor:string = textField._textColorString;
             var strokeColor:string = textField._strokeColorString;
             var outline = textField.stroke;
@@ -170,7 +170,7 @@ module egret {
             super.drawText(textField, text, x, y, maxWidth);
         }
 
-        strokeRect(x, y, w, h, color) {
+        public strokeRect(x, y, w, h, color) {
             this.canvasContext.strokeStyle = color;
             this.canvasContext.strokeRect(x, y, w, h);
         }
@@ -239,6 +239,66 @@ module egret_h5_graphics {
             },
             this,
             [ x, y, r]
+        ));
+        this._fill();
+    }
+
+    export function drawRoundRect(x:number, y:number, width:number, height:number, ellipseWidth:number, ellipseHeight?:number):void {
+        //非等值椭圆角实现
+        this.commandQueue.push(new Command(
+                function (x, y, width, height, ellipseWidth, ellipseHeight?) {
+                    var rendererContext = <egret.HTML5CanvasRenderer>this.renderContext;
+                    var _x:number = rendererContext._transformTx + x;//控制X偏移
+                    var _y:number = rendererContext._transformTy + y;//控制Y偏移
+                    var _w:number = width;
+                    var _h:number = height;
+                    var _ew:number = ellipseWidth / 2;
+                    var _eh:number = ellipseHeight ? ellipseHeight / 2 : _ew;
+                    var right:number = _x + _w;
+                    var bottom:number = _y + _h;
+                    var ax:number = right;
+                    var ay:number = bottom - _eh;
+
+                    this.canvasContext.beginPath();
+                    this.canvasContext.moveTo(ax, ay);
+                    this.canvasContext.quadraticCurveTo(right, bottom, right - _ew, bottom);
+                    this.canvasContext.lineTo(_x + _ew, bottom);
+                    this.canvasContext.quadraticCurveTo(_x, bottom, _x, bottom - _eh);
+                    this.canvasContext.lineTo(_x, _y + _eh);
+                    this.canvasContext.quadraticCurveTo(_x, _y, _x + _ew, _y);
+                    this.canvasContext.lineTo(right - _ew, _y);
+                    this.canvasContext.quadraticCurveTo(right, _y, right, _y + _eh);
+                    this.canvasContext.lineTo(ax, ay);
+                    this.canvasContext.closePath();
+                },
+                this,
+                [ x, y, width, height, ellipseWidth, ellipseHeight]
+            )
+        );
+        this._fill();
+    }
+
+    export function drawEllipse(x:number, y:number, width:number, height:number):void {
+        //基于均匀压缩算法
+        this.commandQueue.push(new Command(
+            function (x, y, width, height) {
+                var rendererContext = <egret.HTML5CanvasRenderer>this.renderContext;
+                this.canvasContext.save();
+                var _x:number = rendererContext._transformTx + x;//控制X偏移
+                var _y:number = rendererContext._transformTy + y;//控制Y偏移
+                var r:number = (width > height) ? width : height;//选宽高较大者做为arc半径参数
+                var ratioX:number = width / r;//横轴缩放比率
+                var ratioY:number = height / r;//纵轴缩放比率
+                this.canvasContext.scale(ratioX,ratioY);//进行缩放(均匀压缩)
+                this.canvasContext.beginPath();
+                this.canvasContext.moveTo((_x + width) / ratioX,_y / ratioY);
+                this.canvasContext.arc(_x / ratioX, _y / ratioY, r, 0, 2 * Math.PI);
+                this.canvasContext.closePath();
+                this.canvasContext.restore();
+                this.canvasContext.stroke();
+            },
+            this,
+            [ x, y, width, height]
         ));
         this._fill();
     }
@@ -370,6 +430,7 @@ module egret_h5_graphics {
         if (this.strokeStyleColor && length > 0 && this.commandQueue[length - 1] != this.endLineCommand) {
             this.createEndLineCommand();
             this.commandQueue.push(this.endLineCommand);
+            length = this.commandQueue.length;
         }
         for (var i = 0; i < length; i++) {
             var command:Command = this.commandQueue[i];

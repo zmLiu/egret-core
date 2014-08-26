@@ -14,7 +14,7 @@ egret_native.egtMain = function () {
     require("bin-debug/lib/egret_file_list.js");
     require("bin-debug/src/game_file_list.js");
     for (var key in egret_file_list) {
-        var src = "bin-debug/lib/" + egret_file_list[key];
+        var src = "libs/core/" + egret_file_list[key];
         require(src);
 
     }
@@ -24,6 +24,8 @@ egret_native.egtMain = function () {
     }
 
 
+
+    egret.MainContext.type = egret.MainContext.TYPE_NATIVE;
     var context = egret.MainContext.instance;
     context.rendererContext = new egret.NativeRendererContext();
     context.netContext = new egret.NativeNetContext();

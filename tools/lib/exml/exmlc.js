@@ -52,7 +52,11 @@ function compile(exmlPath, srcPath) {
     var className = exmlPath.substring(srcPath.length, exmlPath.length - 5);
     className = className.split("/").join(".");
     var xmlString = file.read(exmlPath);
-    var xmlData = xml.parse(xmlString);
+    try  {
+        var xmlData = xml.parse(xmlString);
+    } catch (e) {
+        globals.exit(2002, exmlPath);
+    }
     if (!xmlData) {
         globals.exit(2002, exmlPath);
     }
@@ -66,7 +70,6 @@ function compile(exmlPath, srcPath) {
 ;
 
 exports.compile = compile;
-
 var EXMLCompiler = (function () {
     /**
     * 构造函数
@@ -428,6 +431,9 @@ var EXMLCompiler = (function () {
             value = node[key];
             key = this.formatKey(key.substring(1), value);
             value = this.formatValue(key, value, node);
+            if (!value) {
+                continue;
+            }
             if (this.currentClass.containsVar(value)) {
                 var id = node.$id;
                 var codeLine = "this." + id + " = t;";
@@ -465,7 +471,7 @@ var EXMLCompiler = (function () {
         for (var i = 0; i < length; i++) {
             var child = children[i];
             var prop = child.localName;
-            if (prop == "states" || child.namespace == EXMLCompiler.W) {
+            if (child.namespace == EXMLCompiler.W) {
                 continue;
             }
             if (this.isProperty(child)) {
@@ -603,7 +609,7 @@ var EXMLCompiler = (function () {
     */
     EXMLCompiler.prototype.formatValue = function (key, value, node) {
         if (!value) {
-            return "";
+            value = "";
         }
         var stringValue = value;
         value = value.trim();
@@ -664,7 +670,7 @@ var EXMLCompiler = (function () {
                     value = this.formatString(stringValue);
                     break;
                 default:
-                    globals.exit(2008, this.exmlPath, "string", key, this.toXMLString(node));
+                    globals.exit(2008, this.exmlPath, "string", key + ":" + type, this.toXMLString(node));
                     break;
             }
         }
@@ -771,6 +777,9 @@ var EXMLCompiler = (function () {
                 var key = itemName.substring(0, index);
                 key = this.formatKey(key, value);
                 var itemValue = this.formatValue(key, value, node);
+                if (!itemValue) {
+                    continue;
+                }
                 var stateName = itemName.substr(index + 1);
                 states = this.getStateByName(stateName, node);
                 var stateLength = states.length;
@@ -829,14 +838,19 @@ var EXMLCompiler = (function () {
             for (var i = 0; i < length; i++) {
                 var item = children[i];
                 if (item.localName == "states") {
+                    item.namespace = EXMLCompiler.W;
                     states = item.children;
                     break;
                 }
             }
         }
 
-        if (states == null || states.length == 0)
+        if (states == null)
             return;
+        if (states.length == 0) {
+            globals.warn(2102, this.exmlPath, this.getPropertyStr(item));
+            return;
+        }
         length = states.length;
         for (i = 0; i < length; i++) {
             var state = states[i];
@@ -845,7 +859,7 @@ var EXMLCompiler = (function () {
                 var groups = state.$stateGroups.split(",");
                 var len = groups.length;
                 for (var j = 0; j < len; j++) {
-                    var group = groups[i].trim();
+                    var group = groups[j].trim();
                     if (group) {
                         if (stateNames.indexOf(group) == -1) {
                             stateNames.push(group);
@@ -972,6 +986,9 @@ var EXMLCompiler = (function () {
                         var key = name.substring(0, index);
                         key = this.formatKey(key, value);
                         var value = this.formatValue(key, value, node);
+                        if (!value) {
+                            continue;
+                        }
                         stateName = name.substr(index + 1);
                         states = this.getStateByName(stateName, node);
                         var l = states.length;

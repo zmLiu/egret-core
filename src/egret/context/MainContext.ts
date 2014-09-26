@@ -74,6 +74,11 @@ module egret {
         public static DEVICE_PC:string = "web";
         public static DEVICE_MOBILE:string = "native";
 
+        public static runtimeType:string;
+
+        public static RUNTIME_HTML5:string = "runtime_html5";
+        public static RUNTIME_NATIVE:string = "runtime_native";
+
         /**
          * 游戏启动，开启主循环，参考Flash的滑动跑道模型
          * @method egret.MainContext#run
@@ -99,7 +104,10 @@ module egret {
                 __callLaterArgsList = [];
             }
 
-            this.dispatchEventWith(Event.RENDER);
+            var stage = this.stage;
+            var event = MainContext.cachedEvent;
+            event._type = Event.RENDER;
+            this.dispatchEvent(event);
             if (Stage._invalidateRenderFlag) {
                 this.broadcastRender();
                 Stage._invalidateRenderFlag = false;
@@ -108,11 +116,17 @@ module egret {
                 this.doCallLaterList(functionList, thisList, argsList);
             }
             var context = this.rendererContext;
+            context.onRenderStart();
             context.clearScreen();
-            this.stage._updateTransform();
-            this.dispatchEventWith(Event.FINISH_UPDATE_TRANSFORM);
-            this.stage._draw(context);
-            this.dispatchEventWith(Event.FINISH_RENDER);
+
+            stage._updateTransform();
+            event._type = Event.FINISH_UPDATE_TRANSFORM;
+            this.dispatchEvent(event);
+
+            stage._draw(context);
+            event._type = Event.FINISH_RENDER;
+            this.dispatchEvent(event);
+            context.onRenderFinish();
         }
 
         private reuseEvent:Event = new Event("")
@@ -130,7 +144,7 @@ module egret {
             for (var i:number = 0; i < length; i++) {
                 var eventBin:any = list[i];
                 event._target = eventBin.display;
-                event._setCurrentTarget(eventBin.display);
+                event._currentTarget = eventBin.display;
                 eventBin.listener.call(eventBin.thisObject, event);
             }
 
@@ -150,8 +164,9 @@ module egret {
             var length:number = list.length;
             for (var i:number = 0; i < length; i++) {
                 var eventBin:any = list[i];
-                event._target = eventBin.display;
-                event._setCurrentTarget(eventBin.display);
+                var target = eventBin.display;
+                event._target = target;
+                event._currentTarget = target;
                 eventBin.listener.call(eventBin.thisObject, event);
             }
         }
@@ -174,6 +189,8 @@ module egret {
          */
         public static instance:egret.MainContext;
 
+        private static cachedEvent:Event = new Event("");
+
     }
 }
 
@@ -184,7 +201,15 @@ var testDeviceType = function () {
     }
     var ua = navigator.userAgent.toLowerCase();
     return (ua.indexOf('mobile') != -1 || ua.indexOf('android') != -1);
-}
+};
+
+var testRuntimeType = function () {
+    if (this["navigator"]) {
+        return true;
+    }
+    return false;
+};
 
 egret.MainContext.instance = new egret.MainContext();
 egret.MainContext.deviceType = testDeviceType() ? egret.MainContext.DEVICE_MOBILE : egret.MainContext.DEVICE_PC;
+egret.MainContext.runtimeType = testRuntimeType() ? egret.MainContext.RUNTIME_HTML5 : egret.MainContext.RUNTIME_NATIVE;

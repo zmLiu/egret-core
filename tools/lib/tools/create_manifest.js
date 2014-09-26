@@ -35,6 +35,14 @@ var newClassNameList;
 
 var thmList;
 
+var moduleReferenceInfo;
+
+var modeulClassToPath;
+/**
+ * 包括模块类的所有被文档类引用到的类路径列表
+ */
+var moduleReferenceList;
+
 var exmlConfig;
 /**
  * ts关键字
@@ -58,9 +66,10 @@ var W = "http://ns.egret-labs.org/wing";
  * @param opts
  */
 function run(currDir, args, opts) {
+    var createAll = opts["-all"];
     currDir = globals.joinEgretDir(currDir, args[0]);
     var srcPath = file.joinPath(currDir,"src/");
-    var gameList = create(srcPath);
+    var gameList = create(srcPath,createAll);
     var length = gameList.length;
     for (var i = 0; i < length; i++) {
         var path = gameList[i];
@@ -94,19 +103,31 @@ function getClassToPathInfo(srcPath){
     }
     return classNameToPath;
 }
-/**
- * 创建manifest列表
- */
-function create(srcPath){
-    srcPath = escapeSrcPath(srcPath);
-    var manifest = getManifest(srcPath);
-    manifest = sortFileList(manifest,srcPath);
-    return manifest;
+
+function getModuleReferenceInfo(fileList){
+    resetCache();
+    var length = fileList.length;
+    for (var i = 0; i < length; i++) {
+        var path = fileList[i];
+        readClassNamesFromTs(path);
+    }
+    for (i = 0; i < length; i++) {
+        path = fileList[i];
+        readReferenceFromTs(path);
+    }
+    var result = {referenceInfoList:referenceInfoList,classNameToPath:classNameToPath};
+    classInfoList = null;
+    classNameToPath = null;
+    classNameToModule = null;
+    pathInfoList = null;
+    pathToClassNames = null;
+    referenceInfoList = null;
+    newClassNameList = null;
+    thmList = null;
+    return result;
 }
-/**
- * 获取manifest列表，并读取所有的类名
- */
-function getManifest(srcPath){
+
+function resetCache(){
     classInfoList = {};
     classNameToPath = {};
     classNameToModule = {};
@@ -115,6 +136,38 @@ function getManifest(srcPath){
     referenceInfoList = {};
     newClassNameList = [];
     thmList = [];
+    moduleReferenceInfo = null;
+    modeulClassToPath = null;
+    moduleReferenceList = null;
+}
+
+function getModuleReferenceList(referenceInfo){
+    return moduleReferenceList;
+}
+
+
+/**
+ * 创建manifest列表
+ */
+function create(srcPath,createAll,referenceInfo){
+    srcPath = escapeSrcPath(srcPath);
+    var manifest = getManifest(srcPath);
+    if(referenceInfo){
+        moduleReferenceInfo = referenceInfo.referenceInfoList;
+        modeulClassToPath = referenceInfo.classNameToPath;
+    }
+    manifest = sortFileList(manifest,srcPath);
+    if(!createAll){
+        filterFileList(manifest,srcPath);
+    }
+    return manifest;
+}
+
+/**
+ * 获取manifest列表，并读取所有的类名
+ */
+function getManifest(srcPath){
+    resetCache();
     var manifest = file.searchByFunction(srcPath,filterFunc);
     var exmlList = [];
     for(var i=manifest.length-1;i>=0;i--){
@@ -232,21 +285,25 @@ function sortFileList(list,srcPath){
         gameList = list.concat(gameList);
     }
 
-    //删除文档类没有引用过的类名
+    return gameList;
+}
+
+function filterFileList(gameList,srcPath){
     var documentClass = globals.getDocumentClass(srcPath.substring(0,srcPath.length-4));
     var docPath = classNameToPath[documentClass];
-    if(docPath){
-        var referenceList = [docPath];
-        getReferenceList(docPath,referenceList);
-        var thmClassList = readTHMClassList(file.joinPath(srcPath,".."));
-        var length = thmClassList.length;
+    if(docPath) {
+        var documentList = readTHMClassList(file.joinPath(srcPath, ".."));
+        documentList.push(docPath);
+        var referenceList = [];
+        var length = documentList.length;
         for(var i=0;i<length;i++){
-            var thmPath = thmClassList[i];
-            if(referenceList.indexOf(thmPath)==-1){
-                referenceList.push(thmPath);
-                getReferenceList(thmPath,referenceList);
+            var docPath = documentList[i];
+            if(referenceList.indexOf(docPath)==-1){
+                referenceList.push(docPath);
+                getReferenceList(docPath,referenceList);
             }
         }
+        moduleReferenceList = referenceList;
         for(var i=gameList.length-1;i>=0;i--){
             var path = gameList[i];
             if(referenceList.indexOf(path)==-1){
@@ -296,16 +353,17 @@ function readTHMClassList(projectPath){
  * 过滤函数
  */
 function thmFilterFunc(item){
-    var ext = file.getExtension(item).toLowerCase();
-    if(!ext){
+    if(file.isDirectory(item)){
         if(item==searchPath+"/bin-debug"||
             item==searchPath+"/libs"||
+            item==searchPath+"/release"||
             item==searchPath+"/src"||
             item==searchPath+"/launcher"){
             return false;
         }
         return true;
     }
+    var ext = file.getExtension(item).toLowerCase();
     if(ext=="thm"){
         return true;
     }
@@ -314,6 +372,9 @@ function thmFilterFunc(item){
 
 function getReferenceList(path,result){
     var list = referenceInfoList[path];
+    if(!list&&moduleReferenceInfo){
+        list = moduleReferenceInfo[path];
+    }
     if(list){
         var length = list.length;
         for(var i=0;i<length;i++){
@@ -400,7 +461,12 @@ function setPathLevel(path, level, pathLevelInfo, map,pathRelyInfo,throwError) {
     if (pathLevelInfo[path] == null) {
         pathLevelInfo[path] = level;
     } else {
-        pathLevelInfo[path] = Math.max(pathLevelInfo[path], level);
+        if(pathLevelInfo[path]<level){
+            pathLevelInfo[path] = level;
+        }
+        else{
+            return;
+        }
     }
     var list = pathRelyInfo[path];
     var length = list.length;
@@ -425,6 +491,13 @@ function readReferenceFromExml(path){
         return;
     }
     var list = [];
+    if(modeulClassToPath){
+        list.push(modeulClassToPath["egret.gui.AddItems"]);
+        list.push(modeulClassToPath["egret.gui.SetProperty"]);
+        list.push(modeulClassToPath["egret.gui.State"]);
+        list.push(modeulClassToPath["egret.gui.getScale9Grid"]);
+        list.push(modeulClassToPath["egret.gui.ClassFactory"]);
+    }
     readReferenceFromNode(exml,list);
     referenceInfoList[path] = list;
 }
@@ -437,6 +510,9 @@ function readReferenceFromNode(node,list){
     }
     var className = getClassNameById(node.localName,node.namespace);
     var path = classNameToPath[className];
+    if(!path&&modeulClassToPath){
+        path = modeulClassToPath[className];
+    }
     if(path&&list.indexOf(path)==-1){
         list.push(path);
     }
@@ -445,6 +521,9 @@ function readReferenceFromNode(node,list){
         if(key.charAt(0)=="$"){
             var value = node[key];
             path = classNameToPath[value];
+            if(!path&&modeulClassToPath){
+                path = modeulClassToPath[className];
+            }
             if(path&&list.indexOf(path)==-1){
                 list.push(path);
             }
@@ -509,6 +588,14 @@ function readReferenceFromTs(path){
     }
 
     var list = [];
+    checkAllClassName(classNameToPath,path,list,moduleList,text,orgText);
+    if(modeulClassToPath){
+        checkAllClassName(modeulClassToPath,path,list,moduleList,text,orgText);
+    }
+    referenceInfoList[path] = list;
+}
+
+function checkAllClassName(classNameToPath,path,list,moduleList,text,orgText){
     for(var className in classNameToPath){
         if(CodeUtil.containsVariable(className,orgText)){
             var p = classNameToPath[className];
@@ -539,7 +626,6 @@ function readReferenceFromTs(path){
             }
         }
     }
-    referenceInfoList[path] = list;
 }
 
 /**
@@ -804,13 +890,13 @@ function readRelyOnFromBlock(text, path,fileRelyOnList,ns) {
     while (text.length > 0) {
         var index = CodeUtil.getFirstVariableIndex("class", text);
         if(index==-1){
-            findClassInLine(text,pathToClassNames[path],ns,fileRelyOnList);
+            escapFunctionLines(text,pathToClassNames[path],ns,fileRelyOnList);
             break;
         }
 
         var keyLength = 5;
         var preStr = text.substring(0, index + keyLength);
-        findClassInLine(preStr,pathToClassNames[path],ns,fileRelyOnList)
+        escapFunctionLines(preStr,pathToClassNames[path],ns,fileRelyOnList)
 
         text = text.substring(index + keyLength);
         var word = CodeUtil.getFirstVariable(text);
@@ -926,7 +1012,26 @@ function getRelyOnFromStatic(text,ns, className, relyOnList) {
             line = text.substring(0,index);
             text = text.substring(index);
         }
-        findClassInLine(line,[className],ns,relyOnList);
+        escapFunctionLines(line,[className],ns,relyOnList);
+    }
+}
+/**
+ * 排除代码段里的全局函数块。
+ */
+function escapFunctionLines(text,classNames,ns,relyOnList){
+    while(text.length>0){
+        var index = CodeUtil.getFirstVariableIndex("function",text);
+        if(index==-1){
+            findClassInLine(text,classNames,ns,relyOnList);
+            break;
+        }
+        findClassInLine(text.substring(0,index),classNames,ns,relyOnList);
+        text = text.substring(index);
+        index = CodeUtil.getBracketEndIndex(text);
+        if(index==-1){
+            break;
+        }
+        text = text.substring(index);
     }
 }
 
@@ -985,11 +1090,19 @@ function help_title() {
 
 
 function help_example() {
-    return "egret create_manifest [project_name]";
+    var result = "\n";
+    result += "    egret create_manifest [project_name] -all\n";
+    result += "描述:\n";
+    result += "    " + help_title();
+    result += "参数说明:\n";
+    result += "    -all     生成所有文件的清单,若不指定则只生成文档类有引用到的类清单";
+    return result;
 }
 
 exports.run = run;
 exports.create = create;
 exports.getClassToPathInfo = getClassToPathInfo;
+exports.getModuleReferenceInfo = getModuleReferenceInfo;
+exports.getModuleReferenceList = getModuleReferenceList;
 exports.help_title = help_title;
 exports.help_example = help_example;

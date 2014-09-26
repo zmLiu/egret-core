@@ -44,21 +44,30 @@ declare module egret_native {
 
     function readXML(filepath:string):any;
 
+    function isFileExists(filepath:string):boolean;
+
     function readFileSync(filepath:string):any;
 
+    function writeFileSync(filepath:string, fileContent:string):any;
 
     function requireHttpSync(url:string, callback:Function):void;
+
+    function requireHttp(url:string, param:any, callback:Function):void;
 
     function sendInfoToPlugin(info:string):void;
 
     function recivedPluginInfo(info:string):void;
+
+    function loadRecord(filepath:string):string;
+
+    function saveRecord(filepath:string, fileContent:string):void;
 
     module Audio {
         function preloadBackgroundMusic(path:string):void;
 
         function playBackgroundMusic(path:string, loop:boolean):void;
 
-        function stopBackgroundMusic():void;
+        function stopBackgroundMusic(isRelease:boolean):void;
 
         function preloadEffect(path:string):void;
 
@@ -83,6 +92,18 @@ declare module egret_native {
         function pushRectStencil(x:number, y:number, w:number, h:number, r:number, g:number, b:number, a:number, hackFlag:number, forceCreateMask:boolean):void;
 
         function popStencil():void;
+
+
+        function lineStyle(thickness:number, color:number):void;
+
+        function lineTo(x:number, y:number):void;
+
+        function moveTo(x:number, y:number):void;
+
+        function beginFill(color:number, alpha:number):void;
+
+        function endFill():void;
+
 
     }
 
@@ -114,4 +135,24 @@ declare module egret_native {
 
         function removeTexture(filePath:string):void;
     }
+
+
+    module TextInputOp {
+
+        function setKeybordOpen(isOpen:boolean):void
+        function isFullScreenKeyBoard():boolean
+
+
+    }
+
+    function EGT_TextInput(text:string):void
+    function EGT_keyboardFinish():void
+
+
+    function EGT_deleteBackward():void;
+
+    function EGT_keyboardDidHide():void;
+    function EGT_keyboardDidShow():void;
+
+    function EGT_getTextEditerContentText():string;
 }

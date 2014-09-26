@@ -44,9 +44,6 @@ module egret {
          */
         public constructor() {
             super();
-            egret_native.recivedPluginInfo = function (info:string) {
-
-            };
         }
 
         /**
@@ -70,10 +67,10 @@ module egret {
 module egret_native_external_interface {
     export var callBackDic = {};
 
-    export function call(functionName:String, ...args):void {
+    export function call(functionName:string, value:string):void {
         var data:any = {};
         data.functionName = functionName;
-        data.args = args;
+        data.value = value;
         egret_native.sendInfoToPlugin(JSON.stringify(data));
     }
 
@@ -86,8 +83,11 @@ module egret_native_external_interface {
         var functionName = data.functionName;
         var listener = egret_native_external_interface.callBackDic[functionName];
         if (listener) {
-            var args = data.args;
-            listener.apply(null, args);
+            var value = data.value;
+            listener.call(null, value);
+        }
+        else {
+            egret.Logger.warning("ExternalInterface调用了js没有注册的方法:" + functionName);
         }
     }
 
@@ -116,7 +116,7 @@ module egret_native_sound {
 
     export function pause() {
         if (this.type == egret.Sound.MUSIC) {
-            egret_native.Audio.stopBackgroundMusic();
+            egret_native.Audio.stopBackgroundMusic(false);
         }
         else if (this.type == egret.Sound.EFFECT) {
             if (this.effect_id) {
@@ -156,3 +156,53 @@ module egret_native_sound {
 }
 
 egret_native_sound.init();
+
+module egret_native_localStorage {
+    export var filePath:string = "LocalStorage.local";
+
+    export function getItem(key:string):string {
+        return this.data[key];
+    }
+
+    export function setItem(key:string, value:string):void {
+        this.data[key] = value;
+        this.save();
+    }
+
+    export function removeItem(key:string):void {
+        delete this.data[key];
+        this.save();
+    }
+
+    export function clear():void {
+        for (var key in this.data) {
+            delete this.data[key];
+        }
+        this.save();
+    }
+
+    export function save() {
+//        console.log("egret_native_localStorage::" + "WriteFile");
+        egret_native.saveRecord(egret_native_localStorage.filePath, JSON.stringify(this.data));
+    }
+
+    export function init():void {
+        if (egret_native.isFileExists(egret_native_localStorage.filePath)) {
+//            console.log("egret_native_localStorage::" + "文件存在");
+            var str:string = egret_native.loadRecord(egret_native_localStorage.filePath);
+//            console.log("egret_native_localStorage::" + str);
+            this.data = JSON.parse(str);
+//            console.log("egret_native_localStorage::" + "ReadFileSuccess");
+        }
+        else {
+//            console.log("egret_native_localStorage::" + "文件不存在");
+            this.data = {};
+        }
+
+        for (var key in egret_native_localStorage) {
+            egret.localStorage[key] = egret_native_localStorage[key];
+        }
+    }
+}
+
+egret_native_localStorage.init();

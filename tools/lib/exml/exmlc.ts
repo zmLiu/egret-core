@@ -48,7 +48,12 @@ function compile(exmlPath:string,srcPath:string):void{
     var className:string = exmlPath.substring(srcPath.length,exmlPath.length-5);
     className = className.split("/").join(".");
     var xmlString = file.read(exmlPath);
-    var xmlData = xml.parse(xmlString);
+    try{
+        var xmlData = xml.parse(xmlString);
+    }
+    catch(e){
+        globals.exit(2002,exmlPath);
+    }
     if(!xmlData){
         globals.exit(2002,exmlPath);
     }
@@ -62,8 +67,6 @@ function compile(exmlPath:string,srcPath:string):void{
 
 
 exports.compile = compile;
-
-
 class EXMLCompiler{
     /**
      * Egret命名空间
@@ -478,6 +481,10 @@ class EXMLCompiler{
             value = node[key];
             key = this.formatKey(key.substring(1),value);
             value  = this.formatValue(key,value,node);
+            if(!value)
+            {
+                continue;
+            }
             if(this.currentClass.containsVar(value)){//赋的值对象是一个id
                 var id:string = node.$id;
                 var codeLine:string = "this."+id+" = t;";
@@ -516,7 +523,7 @@ class EXMLCompiler{
         for(var i:number=0;i<length;i++){
             var child:any = children[i];
             var prop:string = child.localName;
-            if(prop=="states"||child.namespace==EXMLCompiler.W){
+            if(child.namespace==EXMLCompiler.W){
                 continue;
             }
             if(this.isProperty(child)){
@@ -661,7 +668,7 @@ class EXMLCompiler{
      */
     private formatValue(key:string,value:string,node:any):string{
         if(!value){
-            return "";
+            value = "";
         }
         var stringValue:string = value;//除了字符串，其他类型都去除两端多余空格。
         value = value.trim();
@@ -834,6 +841,9 @@ class EXMLCompiler{
                 var key:string = itemName.substring(0,index);
                 key = this.formatKey(key,value);
                 var itemValue:string = this.formatValue(key,value,node);
+                if(!itemValue){
+                    continue;
+                }
                 var stateName:string = itemName.substr(index+1);
                 states = this.getStateByName(stateName,node);
                 var stateLength:number = states.length;
@@ -893,14 +903,19 @@ class EXMLCompiler{
             for(var i:number=0;i<length;i++){
                 var item:any = children[i];
                 if(item.localName=="states"){
+                    item.namespace = EXMLCompiler.W;
                     states = item.children;
                     break;
                 }
             }
         }
 
-        if(states==null||states.length==0)
+        if(states==null)
             return;
+        if(states.length==0){
+            globals.warn(2102,this.exmlPath,this.getPropertyStr(item));
+            return;
+        }
         length = states.length;
         for(i=0;i<length;i++){
             var state:any = states[i];
@@ -909,7 +924,7 @@ class EXMLCompiler{
                 var groups:Array<any> = state.$stateGroups.split(",");
                 var len:number = groups.length;
                 for(var j:number=0;j<len;j++){
-                    var group:string = groups[i].trim();
+                    var group:string = groups[j].trim();
                     if(group){
                         if(stateNames.indexOf(group)==-1){
                             stateNames.push(group);
@@ -1040,6 +1055,9 @@ class EXMLCompiler{
                         var key:string = name.substring(0,index);
                         key = this.formatKey(key,value);
                         var value:string = this.formatValue(key,value,node);
+                        if(!value){
+                            continue;
+                        }
                         stateName = name.substr(index+1);
                         states = this.getStateByName(stateName,node);
                         var l:number = states.length;

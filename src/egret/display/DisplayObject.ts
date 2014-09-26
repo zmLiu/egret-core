@@ -70,8 +70,9 @@ module egret {
         private _sizeDirty:boolean = true;
 
         public _setParentSizeDirty():void {
-            if (this.parent && (!this.parent._hasWidthSet && !this.parent._hasHeightSet)) {
-                this.parent._setSizeDirty();
+            var parent = this._parent;
+            if (parent && (!(parent._hasWidthSet || parent._hasHeightSet))) {
+                parent._setSizeDirty();
             }
         }
 
@@ -131,7 +132,11 @@ module egret {
         }
 
         public set x(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            this._setX(value);
+        }
+
+        public _setX(value:number):void {
+            if (NumberUtils.isNumber(value) && this._x != value) {
                 this._x = value;
 
                 this._setDirty();
@@ -150,7 +155,11 @@ module egret {
         }
 
         public set y(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            this._setY(value);
+        }
+
+        public _setY(value:number):void {
+            if (NumberUtils.isNumber(value) && this._y != value) {
                 this._y = value;
 
                 this._setDirty();
@@ -170,7 +179,7 @@ module egret {
         }
 
         public set scaleX(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._scaleX != value) {
                 this._scaleX = value;
 
                 this._setDirty();
@@ -190,7 +199,7 @@ module egret {
         }
 
         public set scaleY(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._scaleY != value) {
                 this._scaleY = value;
 
                 this._setDirty();
@@ -210,7 +219,7 @@ module egret {
         }
 
         public set anchorOffsetX(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._anchorOffsetX != value) {
                 this._anchorOffsetX = value;
 
                 this._setDirty();
@@ -230,7 +239,7 @@ module egret {
         }
 
         public set anchorOffsetY(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._anchorOffsetY != value) {
                 this._anchorOffsetY = value;
 
                 this._setDirty();
@@ -250,7 +259,7 @@ module egret {
         }
 
         public set anchorX(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._anchorX != value) {
                 this._anchorX = value;
 
                 this._setDirty();
@@ -270,7 +279,7 @@ module egret {
         }
 
         public set anchorY(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._anchorY != value) {
                 this._anchorY = value;
 
                 this._setDirty();
@@ -289,8 +298,14 @@ module egret {
         }
 
         public set visible(value:boolean) {
-            this._visible = value;
-            this._setSizeDirty();
+            this._setVisible(value);
+        }
+
+        public _setVisible(value:boolean):void {
+            if (this._visible != value) {
+                this._visible = value;
+                this._setSizeDirty();
+            }
         }
 
         /**
@@ -305,7 +320,7 @@ module egret {
         }
 
         public set rotation(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._rotation != value) {
                 this._rotation = value;
 
                 this._setSizeDirty();
@@ -324,7 +339,7 @@ module egret {
         }
 
         public set alpha(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._alpha != value) {
                 this._alpha = value;
 
                 this._setDirty();
@@ -343,7 +358,7 @@ module egret {
         }
 
         public set skewX(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._skewX != value) {
                 this._skewX = value;
 
                 this._setSizeDirty();
@@ -362,7 +377,7 @@ module egret {
         }
 
         public set skewY(value:number) {
-            if (NumberUtils.isNumber(value)) {
+            if (NumberUtils.isNumber(value) && this._skewY != value) {
                 this._skewY = value;
 
                 this._setSizeDirty();
@@ -514,7 +529,7 @@ module egret {
          * @param renderContext
          */
         public _draw(renderContext:RendererContext):void {
-            if (!this.visible) {
+            if (!this._visible) {
                 this.destroyCacheBounds();
                 return;
             }
@@ -559,14 +574,21 @@ module egret {
             }
         }
 
-
         /**
          * @private
          * @param renderContext
          */
         public _updateTransform():void {
+            this._calculateWorldform();
+        }
+
+        /**
+         * 计算全局数据
+         * @private
+         */
+        public _calculateWorldform():void {
             var o = this;
-            o._worldTransform.identity().appendMatrix(o._parent._worldTransform);
+            o._worldTransform.identityMatrix(o._parent._worldTransform);
             var anchorX, anchorY;
             var resultPoint = o._getOffsetPoint();
             anchorX = resultPoint.x;
@@ -702,7 +724,7 @@ module egret {
          * @returns {*}
          */
         public hitTest(x:number, y:number, ignoreTouchEnabled:boolean = false):DisplayObject {
-            if (!this.visible || (!ignoreTouchEnabled && !this._touchEnabled)) {
+            if (!this._visible || (!ignoreTouchEnabled && !this._touchEnabled)) {
                 return null;
             }
             var bound:Rectangle = this._getSize(Rectangle.identity);
@@ -872,35 +894,47 @@ module egret {
             var list:Array<DisplayObject> = [];
             var target:DisplayObject = this;
             while (target) {
-                list.unshift(target);
-                target = target.parent;
-            }
-
-            var length:number = list.length;
-            var targetIndex:number = length - 1;
-            for (var i:number = length - 2; i >= 0; i--) {
-                list.push(list[i]);
+                list.push(target);
+                target = target._parent;
             }
             event._reset();
-            this._dispatchPropagationEvent(event, list, targetIndex);
-            return !event.isDefaultPrevented();
+            this._dispatchPropagationEvent(event, list);
+            return !event._isDefaultPrevented;
         }
 
-        public _dispatchPropagationEvent(event:Event, list:Array<DisplayObject>, targetIndex:number):void {
+        public _dispatchPropagationEvent(event:Event, list:Array<DisplayObject>,targetIndex?:number):void {
             var length:number = list.length;
-            for (var i:number = 0; i < length; i++) {
+            var eventPhase:number = 1;
+            for (var i:number = length - 1 ; i >= 0 ; i--){
                 var currentTarget:DisplayObject = list[i];
-                event._setCurrentTarget(currentTarget);
+                event._currentTarget = currentTarget;
                 event._target = this;
-                if (i < targetIndex)
-                    event._eventPhase = 1;
-                else if (i == targetIndex)
-                    event._eventPhase = 2;
-                else
-                    event._eventPhase = 3;
+                event._eventPhase = eventPhase;
                 currentTarget._notifyListener(event);
                 if (event._isPropagationStopped || event._isPropagationImmediateStopped) {
-                    break;
+                    return;
+                }
+            }
+
+            var eventPhase:number = 2;
+            var currentTarget:DisplayObject = list[0];
+            event._currentTarget = currentTarget;
+            event._target = this;
+            event._eventPhase = eventPhase;
+            currentTarget._notifyListener(event);
+            if (event._isPropagationStopped || event._isPropagationImmediateStopped) {
+                return;
+            }
+
+            var eventPhase:number = 3;
+            for (i = 1 ; i < length ; i++){
+                var currentTarget:DisplayObject = list[i];
+                event._currentTarget = currentTarget;
+                event._target = this;
+                event._eventPhase = eventPhase;
+                currentTarget._notifyListener(event);
+                if (event._isPropagationStopped || event._isPropagationImmediateStopped) {
+                    return;
                 }
             }
         }

@@ -33,11 +33,9 @@ module egret {
      * @classdesc
      * @extends egret.HashObject
      */
-    export class StageText extends HashObject {
-
-        private div:any;
-        private inputElement:HTMLInputElement;
-        private _size:number = 20;
+    export class StageText extends EventDispatcher {
+        public _multiline:boolean = false;
+        public _maxChars:number = 0;
 
         constructor() {
             super();
@@ -48,7 +46,7 @@ module egret {
          * @returns {string}
          */
         public _getText():string {
-            return this.inputElement.value;
+            return null;
         }
 
         /**
@@ -56,7 +54,7 @@ module egret {
          * @param value {string}
          */
         public _setText(value:string):void {
-            this.inputElement.value = value;
+
         }
 
         /**
@@ -64,7 +62,7 @@ module egret {
          * @param type {string}
          */
         public _setTextType(type:string):void {
-            this.inputElement.type = type;
+
         }
 
         /**
@@ -72,7 +70,7 @@ module egret {
          * @returns {string}
          */
         public _getTextType():string {
-            return this.inputElement.type;
+            return null;
         }
 
         /**
@@ -83,82 +81,73 @@ module egret {
          * @param height {number}
          */
         public _open(x:number, y:number, width:number = 160, height:number = 21):void {
-            var scaleX = egret.StageDelegate.getInstance().getScaleX();
-            var scaleY = egret.StageDelegate.getInstance().getScaleY();
 
-            var inputElement = document.createElement("input");
-            inputElement.type = "text";
-            inputElement.style.fontSize = this._size + "px";
-            inputElement.style.color = "#FFFFFF";
-            inputElement.style.border = "none";
-            inputElement.style.background = "none";
-            inputElement.style.width = width + "px";
-            inputElement.style.padding = "0";
-            inputElement.style.outline = "medium";
+        }
 
-            var div = egret.Browser.getInstance().$new("div");
-            div.position.x = x * scaleX;
-            div.position.y = y * scaleY;
-            div.style.width = width + "px";
-            div.scale.x = scaleX;
-            div.scale.y = scaleY;
-            div.transforms();
-            div.style[egret_dom.getTrans("transformOrigin")] = "0% 0% 0px";
+        /**
+         * @method egret.StageText#add
+         */
+        public _show():void {
 
-            div.appendChild(inputElement);
-
-            var stageDelegateDiv = egret.Browser.getInstance().$("#StageDelegateDiv");
-            if (!stageDelegateDiv) {
-//                var canvas = document.getElementById(egret.StageDelegate.canvas_name);
-                stageDelegateDiv = egret.Browser.getInstance().$new("div");
-                stageDelegateDiv.id = "StageDelegateDiv";
-//                stageDelegateDiv.style.width = canvas.style.width;
-//                stageDelegateDiv.style.height = canvas.style.height;
-
-                var container = document.getElementById(egret.StageDelegate.canvas_div_name);
-                container.appendChild(stageDelegateDiv);
-                stageDelegateDiv.transforms();
-            }
-            stageDelegateDiv.appendChild(div);
-            this.div = div;
-            this.inputElement = inputElement;
         }
 
         /**
          * @method egret.StageText#remove
          */
         public _remove():void {
-            var div = this.div;
-            if (div && div.parentNode) {
-                div.parentNode.removeChild(div);
-            }
+
+        }
+
+        public _hide():void {
+
+        }
+
+        public _draw():void {
+
+        }
+
+        public _addListeners():void {
+
+        }
+
+        public _removeListeners():void {
+
         }
 
         public changePosition(x:number, y:number):void {
-            var scaleX = egret.StageDelegate.getInstance().getScaleX();
-            var scaleY = egret.StageDelegate.getInstance().getScaleY();
 
-            this.div.position.x = x * scaleX;
-            this.div.position.y = y * scaleY;
-            this.div.transforms();
         }
 
         public changeSize(width:number, height:number):void {
-            this.inputElement.style.width = width + "px";
-//            this.inputElement.style.height = height + "px";
 
-            this.div.style.width = width + "px";
-//            this.div.style.height = height + "px";
-            this.div.transforms();
         }
 
         public setSize(value:number):void {
-            this._size = value;
-            this.inputElement.style.fontSize = this._size + "px";
+
         }
 
         public setTextColor(value:string):void {
-            this.inputElement.style.color = value;
+
         }
+
+        public setTextFontFamily(value:string):void {
+
+        }
+
+        public setWidth(value:number):void {
+
+        }
+
+        public setHeight(value:number):void {
+        }
+
+        public _setMultiline(value:boolean):void {
+            this._multiline = value;
+        }
+
+        public static create():StageText {
+            return null;
+        }
+
     }
 }

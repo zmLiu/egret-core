@@ -34,12 +34,12 @@ module egret {
             super();
         }
 
-
+        private urlData:any = {};
         /**
          * @method egret.HTML5NetContext#proceed
          * @param loader {URLLoader}
          */
-        public proceed(loader:URLLoader):void{
+        public proceed(loader:URLLoader):void {
 
             if (loader.dataFormat == URLLoaderDataFormat.TEXTURE) {
                 this.loadTexture(loader);
@@ -50,64 +50,109 @@ module egret {
                 return;
             }
 
-
-            var url = loader._request.url;
-            if (url.indexOf("http://") == 0){
-                egret_native.requireHttpSync( url , function( str_resultcode ,str_recived_data  ) {
-                    if (str_resultcode == 0){
-                        loader.data = str_recived_data;
-                        callLater(Event.dispatchEvent, Event, loader, Event.COMPLETE);
-                    }
-                    else{
-                        //todo
-                        console.log ("net error:" + str_resultcode);
-                    }
-                })
-                return;
+            var request:URLRequest = loader._request;
+            var url:string = NetContext._getUrl(request);
+            if (url.indexOf("http://") == 0) {
+                this.urlData.type = request.method;
+                if (request.method == URLRequestMethod.POST && request.data && request.data instanceof URLVariables) {
+                    var urlVars:URLVariables = <URLVariables> request.data;
+                    this.urlData.data = urlVars.toString();
+                }
+                else {
+                    delete this.urlData["data"];
+                }
+                var promise = PromiseObject.create();
+                promise.onSuccessFunc = function (getted_str){
+                    loader.data = getted_str;
+                    callLater(Event.dispatchEvent, Event, loader, Event.COMPLETE);
+                };
+                promise.onErrorFunc = function (error_code){
+                    console.log("net error:" + error_code);
+                    IOErrorEvent.dispatchIOErrorEvent(loader);
+                };
+                egret_native.requireHttp(url, this.urlData, promise);
+            }
+            else if(!egret_native.isFileExists(url)) {
+                var promise = PromiseObject.create();
+                promise.onSuccessFunc = onLoadComplete;
+                egret_native.download(url, url, promise);
+            }
+            else {
+                callLater(onLoadComplete, this);
             }
 
-            callLater(onLoadComplete, this);
-
             function onLoadComplete() {
-                var request:URLRequest = loader._request;
-                var content = egret_native.readFileSync(request.url);
+                var content = egret_native.readFileSync(url);
                 loader.data = content;
-                Event.dispatchEvent(loader,Event.COMPLETE);
-            };
+                Event.dispatchEvent(loader, Event.COMPLETE);
+            }
         }
 
-        private loadSound (loader) {
+        private loadSound(loader:URLLoader) {
             var request = loader._request;
             var url = request.url;
-            var savePath = request.url;
-            var promise = egret.PromiseObject.create();
-            promise.onSuccessFunc = function () {
-                egret_native.Audio.preloadEffect(savePath);
+            var savePath = url;
+
+            if(url.indexOf("http://") != -1) {
+                var promise = egret.PromiseObject.create();
+                promise.onSuccessFunc = onLoadComplete;
+                promise.onErrorFunc = function () {
+                    egret.IOErrorEvent.dispatchIOErrorEvent(loader);
+                };
+                egret_native.download(url, savePath, promise);
+            }
+            else if(!egret_native.isFileExists(url)) {
+                var promise = PromiseObject.create();
+                promise.onSuccessFunc = onLoadComplete;
+                promise.onErrorFunc = function () {
+                    egret.IOErrorEvent.dispatchIOErrorEvent(loader);
+                };
+                egret_native.download(url, url, promise);
+            }
+            else {
+                callLater(onLoadComplete, this);
+            }
+
+            function onLoadComplete() {
                 var sound = new egret.Sound();
                 sound.path = savePath;
                 loader.data = sound;
                 egret.callLater(egret.Event.dispatchEvent, egret.Event, loader, egret.Event.COMPLETE);
-            };
-            promise.onErrorFunc = function () {
-                egret.IOErrorEvent.dispatchIOErrorEvent(loader);
-            };
-            egret_native.download(url, savePath, promise);
+            }
         }
 
         private loadTexture(loader:URLLoader):void {
+            var request:URLRequest = loader._request;
+            var url:string = request.url;
+            var savePath:string = url;
 
-            callLater(onLoadComplete, this);
+            if (url.indexOf("http://") != -1) {
+                var promise = egret.PromiseObject.create();
+                promise.onSuccessFunc = onLoadComplete;
+                promise.onErrorFunc = function () {
+                    egret.IOErrorEvent.dispatchIOErrorEvent(loader);
+                };
+                egret_native.download(url, savePath, promise);
+            }
+            else if(!egret_native.isFileExists(url)) {
+                var promise = PromiseObject.create();
+                promise.onSuccessFunc = onLoadComplete;
+                promise.onErrorFunc = function () {
+                    egret.IOErrorEvent.dispatchIOErrorEvent(loader);
+                };
+                egret_native.download(url, url, promise);
+            }
+            else {
+                callLater(onLoadComplete, this);
+            }
 
             function onLoadComplete() {
-                var request:URLRequest = loader._request;
-                var bitmapData = egret_native.Texture.addTexture(request.url);
+                var bitmapData = egret_native.Texture.addTexture(savePath);
                 var texture = new Texture();
                 texture._setBitmapData(bitmapData);
                 loader.data = texture;
-                Event.dispatchEvent(loader,Event.COMPLETE);
-            };
+                Event.dispatchEvent(loader, Event.COMPLETE);
+            }
         }
     }
-
-
 }

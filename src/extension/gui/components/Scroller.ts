@@ -136,29 +136,11 @@ module egret.gui {
             }
         }
 
-        private touchEndTimer:Timer;
-        private delayTouchEndEvent:TouchEvent;
-
         private onTouchEndCapture(event:TouchEvent):void{
             if(!this.delayTouchBeginEvent){
                 return;
             }
-            event.stopPropagation();
-            var evt:TouchEvent = this.cloneTouchEvent(event);
-            this.delayTouchEndEvent = evt;
             this.onTouchBeginTimer();
-            if(!this.touchEndTimer){
-                this.touchEndTimer = new egret.Timer(100,1);
-                this.touchEndTimer.addEventListener(TimerEvent.TIMER_COMPLETE,this.onTouchEndTimer,this);
-            }
-            this.touchEndTimer.start();
-        }
-
-        private onTouchEndTimer(e:TimerEvent){
-            this.touchEndTimer.stop();
-            var event:TouchEvent = this.delayTouchEndEvent;
-            this.delayTouchEndEvent = null;
-            this.dispatchPropagationEvent(event);
         }
 
         private dispatchPropagationEvent(event:TouchEvent):void{
@@ -178,8 +160,27 @@ module egret.gui {
                 }
                 list.unshift(target);
             }
-            var targetIndex:number = list.indexOf(event._target);
-            this._dispatchPropagationEvent(event,list,targetIndex);
+            this._dispatchPropagationEvent(event,list);
+        }
+
+        //todo 此处代码是为了兼容之前的实现，应该尽快更优化的实现后删除
+        public _dispatchPropagationEvent(event:Event, list:Array<DisplayObject>, targetIndex?:number):void {
+            var length:number = list.length;
+            for (var i:number = 0; i < length; i++) {
+                var currentTarget:DisplayObject = list[i];
+                event._currentTarget = currentTarget;
+                event._target = this;
+                if (i < targetIndex)
+                    event._eventPhase = 1;
+                else if (i == targetIndex)
+                    event._eventPhase = 2;
+                else
+                    event._eventPhase = 3;
+                currentTarget._notifyListener(event);
+                if (event._isPropagationStopped || event._isPropagationImmediateStopped) {
+                    break;
+                }
+            }
         }
 
         private touchBeginTimer:Timer;
@@ -202,10 +203,6 @@ module egret.gui {
                     }
                 }
                 target = target.parent;
-            }
-            if(this.delayTouchEndEvent){
-                this.delayTouchEndEvent = null;
-                this.touchEndTimer.stop();
             }
             event.stopPropagation();
             var evt:TouchEvent = this.cloneTouchEvent(event);
@@ -295,7 +292,7 @@ module egret.gui {
         private ignoreTouchBegin:boolean = false;
 
         private onTouchBegin(event:TouchEvent):void{
-            if(event.isDefaultPrevented()){
+            if(event._isDefaultPrevented){
                 return;
             }
             var canScroll:boolean = this.checkScrollPolicy();
@@ -334,6 +331,9 @@ module egret.gui {
         }
 
         private onTouchMove(event:TouchEvent):void{
+            if(this._currentTouchX==event.stageX&&this._currentTouchY==event.stageY){
+                return;
+            }
             this._currentTouchX = event.stageX;
             this._currentTouchY = event.stageY;
             if(this.delayTouchBeginEvent){

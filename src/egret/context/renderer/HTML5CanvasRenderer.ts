@@ -51,10 +51,13 @@ module egret {
         public _transformTy:number;
 
         private blendValue:string;
+        private globalAlpha:number = 1;
 
-        public constructor(canvas) {
-            this.canvas = canvas;
-            this.canvasContext = canvas.getContext("2d");
+        public constructor(canvas?:HTMLCanvasElement) {
+            super();
+
+            this.canvas = canvas || this.createCanvas();
+            this.canvasContext = this.canvas.getContext("2d");
             var f = this.canvasContext.setTransform;
             var that = this;
             this.canvasContext.setTransform = function (a, b, c, d, tx, ty) {
@@ -78,12 +81,27 @@ module egret {
             super();
         }
 
+        private createCanvas():HTMLCanvasElement {
+            var canvas:HTMLCanvasElement = egret.Browser.getInstance().$("#egretCanvas");
+            if (!canvas) {
+                var container = document.getElementById(egret.StageDelegate.canvas_div_name);
+                canvas = egret.Browser.getInstance().$new("canvas");
+                canvas.id = "egretCanvas";
+                canvas.width = egret.MainContext.instance.stage.stageWidth; //stageW
+                canvas.height = egret.MainContext.instance.stage.stageHeight; //stageH
+                canvas.style.width = container.style.width;
+                canvas.style.height = container.style.height;
+                container.appendChild(canvas);
+            }
+            return canvas;
+        }
+
         public clearScreen() {
-            this.setTransform(egret.Matrix.identity.identity());
+//            this.setTransform(egret.Matrix.identity.identity());
             var list = RenderFilter.getInstance().getDrawAreaList();
             for (var i:number = 0 , l:number = list.length; i < l; i++) {
                 var area = list[i];
-                this.clearRect(area.x + this._transformTx, area.y + this._transformTy, area.width, area.height);
+                this.clearRect(area.x, area.y, area.width, area.height);
             }
             this.renderCost = 0;
         }
@@ -93,10 +111,11 @@ module egret {
         }
 
         public drawImage(texture:Texture, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight) {
-            sourceX = sourceX / egret.MainContext.instance.rendererContext.texture_scale_factor;
-            sourceY = sourceY / egret.MainContext.instance.rendererContext.texture_scale_factor;
-            sourceWidth = sourceWidth / egret.MainContext.instance.rendererContext.texture_scale_factor;
-            sourceHeight = sourceHeight / egret.MainContext.instance.rendererContext.texture_scale_factor;
+            var scale = egret.MainContext.instance.rendererContext.texture_scale_factor;
+            sourceX = sourceX / scale;
+            sourceY = sourceY / scale;
+            sourceWidth = sourceWidth / scale;
+            sourceHeight = sourceHeight / scale;
 //            if (DEBUG && DEBUG.DRAW_IMAGE) {
 //                DEBUG.checkDrawImage(texture, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
 //            }
@@ -125,8 +144,8 @@ module egret {
         }
 
         public setAlpha(alpha:number, blendMode:string) {
-            if (alpha != this.canvasContext.globalAlpha) {
-                this.canvasContext.globalAlpha = alpha;
+            if (alpha != this.globalAlpha) {
+                this.canvasContext.globalAlpha = this.globalAlpha = alpha;
             }
             if (blendMode) {
                 this.blendValue = blendMode;
@@ -140,9 +159,9 @@ module egret {
 
         public setupFont(textField:TextField):void {
             var ctx = this.canvasContext;
-            var font:string = textField.italic ? "italic " : "normal ";
-            font += textField.bold ? "bold " : "normal ";
-            font += textField.size + "px " + textField.fontFamily;
+            var font:string = textField._italic ? "italic " : "normal ";
+            font += textField._bold ? "bold " : "normal ";
+            font += textField._size + "px " + textField._fontFamily;
             ctx.font = font;
             ctx.textAlign = "left";
             ctx.textBaseline = "middle";
@@ -158,7 +177,7 @@ module egret {
         public drawText(textField:egret.TextField, text:string, x:number, y:number, maxWidth:number) {
             var textColor:string = textField._textColorString;
             var strokeColor:string = textField._strokeColorString;
-            var outline = textField.stroke;
+            var outline = textField._stroke;
             var renderContext = this.canvasContext;
             renderContext.fillStyle = textColor;
             renderContext.strokeStyle = strokeColor;
@@ -190,7 +209,14 @@ module egret {
         }
 
 
-        //WebGL API
+        public onRenderStart():void {
+            this.canvasContext.save();
+        }
+
+        public onRenderFinish():void {
+            this.canvasContext.restore();
+            this.canvasContext.setTransform(1, 0, 0, 1, 0, 0);
+        }
     }
 }
 
@@ -323,7 +349,7 @@ module egret_h5_graphics {
             },
             this,
             [thickness, _colorStr]
-        ))
+        ));
 
         if (typeof(this.lineX) === "undefined") {
             this.lineX = 0;
@@ -341,7 +367,7 @@ module egret_h5_graphics {
             },
             this,
             [x, y]
-        ))
+        ));
         this.lineX = x;
         this.lineY = y;
     }
@@ -352,11 +378,12 @@ module egret_h5_graphics {
             function (x, y, ax, ay) {
                 var rendererContext = <egret.HTML5CanvasRenderer>this.renderContext;
                 var canvasContext:CanvasRenderingContext2D = this.canvasContext;
-                canvasContext.quadraticCurveTo(rendererContext._transformTx + x, rendererContext._transformTy + y, ax, ay);
+                canvasContext.quadraticCurveTo(rendererContext._transformTx + x, rendererContext._transformTy + y,
+                        rendererContext._transformTx + ax, rendererContext._transformTy + ay);
             },
             this,
             [controlX, controlY, anchorX, anchorY]
-        ))
+        ));
         this.lineX = anchorX;
         this.lineY = anchorY;
     }

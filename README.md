@@ -1,6 +1,6 @@
 Egret Engine
 ================================================
-Current Version: v1.0.4
+Current Version: v1.0.6
 
 
 
@@ -37,11 +37,9 @@ Egret Engine是一款使用JavaScript(TypeScript)编写的HTML5开源免费游�
 
 工具
 -------------------------
-* [AS3-TS Conversion Tool ( beta )](http://download.egret-labs.org/?id=As2TsTool) ,AS3到TS的代码转换工具
+* [Conversion Tool ( beta )](http://download.egret-labs.org/?id=As2TsTool) ,AS3到TS的代码转换工具
 * [ResTool ( beta )](http://download.egret-labs.org/?id=ResTool) ,RES资源模块配置文件管理工具
-* SpriteSheet工具
-    * [Texture Packer for Egret plug-in](https://github.com/ping-chen/egret-tool) , 由社区贡献者[ping-chen](https://github.com/ping-chen/)提供
-    * [ShoeBox for Egret plug-in](https://github.com/runinspring/egretTools)，由社区贡献者[runinspring](https://github.com/runinspring)提供
+* [TextureTool ( beta )](http://download.egret-labs.org/?id=TextureTool) ,SpriteSheet工具
 * StarlingSWF
     * StarlingSWF 是一款将 FlashPro创作的 SWF 文件生成 Starling/Features 支持格式的工具，被广泛用于 Flash 移动项目开发中。
     * StarlingSWF 目前已经可以导出为 Egret 支持的格式 。 [官方下载地址](http://www.zmliu.com/?p=271)
@@ -50,6 +48,10 @@ Egret Engine是一款使用JavaScript(TypeScript)编写的HTML5开源免费游�
 
 发布说明
 --------------------
+
+[Egret 1.0.6 Release Notes 2014-9-12](/docs/1.0.6_ReleaseNotes.md)
+
+[Egret 1.0.5 Release Notes 2014-8-29](/docs/1.0.5_ReleaseNotes.md)
 
 [Egret 1.0.4 Release Notes 2014-8-17](/docs/1.0.4_ReleaseNotes.md)
 
@@ -73,5 +75,5 @@ Egret Engine是一款使用JavaScript(TypeScript)编写的HTML5开源免费游�
 -------------------
 * 开发者论坛: http://bbs.egret-labs.org
 * 开发者群:
-  * 1群：141578440（满）
+  * 1群：141578440
   * 2群：397297607

@@ -69,7 +69,9 @@ module egret {
 
                var  scaleModeEnum = {};
                 scaleModeEnum[StageScaleMode.NO_SCALE] = new NoScale();
-                scaleModeEnum[StageScaleMode.SHOW_ALL] = new FixedWidth();
+                scaleModeEnum[StageScaleMode.SHOW_ALL] = new ShowAll();
+                scaleModeEnum[StageScaleMode.NO_BORDER] = new FixedWidth();
+                scaleModeEnum[StageScaleMode.EXACT_FIT] = new FullScreen();
                 var content = scaleModeEnum[value];
                 if (!content){
                     throw new Error("使用了尚未实现的ScaleMode");
@@ -77,9 +79,8 @@ module egret {
                 var container = new egret.EqualToFrame();
                 var policy = new egret.ResolutionPolicy(container, content);
                 egret.StageDelegate.getInstance()._setResolutionPolicy(policy);
-                var canvas:any = document.getElementById(StageDelegate.canvas_name);
-                this._stageWidth = canvas.width;
-                this._stageHeight = canvas.height;
+                this._stageWidth = egret.StageDelegate.getInstance()._stageWidth;
+                this._stageHeight = egret.StageDelegate.getInstance()._stageHeight;
                 this.dispatchEventWith(Event.RESIZE);
             }
         }
@@ -111,11 +112,11 @@ module egret {
          * @returns {egret.DisplayObject}
          */
         public hitTest(x, y) {
-            if (!this.touchEnabled) {
+            if (!this._touchEnabled) {
                 return null;
             }
             var result:DisplayObject;
-            if (!this.visible) {
+            if (!this._touchChildren) {
                 return this;
             }
             var children = this._children;
@@ -124,13 +125,13 @@ module egret {
                 var child = children[i];
                 var o = child;
                 var offsetPoint = o._getOffsetPoint();
-                var mtx = Matrix.identity.identity().prependTransform(o.x, o.y, o.scaleX, o.scaleY, o.rotation,
+                var mtx = Matrix.identity.identity().prependTransform(o._x, o._y, o._scaleX, o._scaleY, o._rotation,
                     0, 0, offsetPoint.x, offsetPoint.y);
                 mtx.invert();
                 var point = Matrix.transformCoords(mtx, x, y);
                 result = child.hitTest(point.x, point.y, true);
                 if (result) {
-                    if (result.touchEnabled) {
+                    if (result._touchEnabled) {
                         return result;
                     }
                 }

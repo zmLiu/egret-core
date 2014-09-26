@@ -21,7 +21,6 @@ function init(name){
             ],
             "native": {
                 "path_ignore": [
-                    "libs"
                 ]
             }
         }
@@ -29,6 +28,9 @@ function init(name){
     }
     else{
         projectConfig = JSON.parse(content);
+    }
+    if (!projectConfig.native){
+        projectConfig.native = {};
     }
     exports.data = projectConfig;
 }
@@ -51,3 +53,6 @@ function getModule(runtime){
 exports.init = init
 exports.save = save
 exports.getModule = getModule
+exports.getOutputDir = function(){
+    return null;//"/Users/wander/Documents/egret_workspace/temp_build_for_native";
+}

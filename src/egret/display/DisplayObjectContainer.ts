@@ -99,7 +99,7 @@ module egret {
 		 * @returns {egret.DisplayObject} 在 child 参数中传递的 DisplayObject 实例。
          */
         public addChild(child:DisplayObject):DisplayObject{
-            var index:number = this.numChildren;
+            var index:number = this._children.length;
 
             if (child._parent == this)
                 index--;
@@ -129,7 +129,7 @@ module egret {
                 return child;
             }
 
-            var host:DisplayObjectContainer = child.parent;
+            var host:DisplayObjectContainer = child._parent;
             if (host == this)
             {
                 this.doSetChildIndex(child,index);
@@ -302,7 +302,7 @@ module egret {
          * 从 DisplayObjectContainer 实例的子级列表中删除所有 child DisplayObject 实例。
 		 * @method egret.DisplayObjectContainer#removeChildren
          */
-        public removeChildren() {
+        public removeChildren():void {
             var locChildren = this._children;
             for(var i:number=locChildren.length-1;i>=0;i--)
             {
@@ -311,7 +311,7 @@ module egret {
         }
 
         public _updateTransform():void {
-            if (!this.visible) {
+            if (!this._visible) {
                 return;
             }
             super._updateTransform();
@@ -341,7 +341,7 @@ module egret {
             for (var i = 0; i < l; i++) {
                 var child = this._children[i];
                 var bounds:Rectangle;
-                if (!child.visible || !(bounds = DisplayObject.getTransformBounds(child._getSize(Rectangle.identity), child._getMatrix()))) {
+                if (!child._visible || !(bounds = DisplayObject.getTransformBounds(child._getSize(Rectangle.identity), child._getMatrix()))) {
                     continue;
                 }
                 var x1 = bounds.x , y1 = bounds.y,
@@ -375,7 +375,7 @@ module egret {
          */
         public hitTest(x:number, y:number, ignoreTouchEnabled:boolean = false):DisplayObject{
             var result:DisplayObject;
-            if (!this.visible) {
+            if (!this._visible) {
                 return null;
             }
             if (this._scrollRect) {
@@ -402,47 +402,48 @@ module egret {
                 var offsetPoint = o._getOffsetPoint();
                 var childX = o._x;
                 var childY = o._y;
-                if(this._scrollRect)
-                {
+                if (this._scrollRect) {
                     childX -= this._scrollRect.x;
                     childY -= this._scrollRect.y;
                 }
-                var mtx = Matrix.identity.identity().prependTransform(childX, childY, o._scaleX, o._scaleY, o._rotation,
-                    0, 0, offsetPoint.x, offsetPoint.y);
+                var mtx = egret.Matrix.identity.identity().prependTransform(childX, childY, o._scaleX, o._scaleY, o._rotation, 0, 0, offsetPoint.x, offsetPoint.y);
                 mtx.invert();
-                var point = Matrix.transformCoords(mtx, x, y);
+                var point = egret.Matrix.transformCoords(mtx, x, y);
                 var childHitTestResult = child.hitTest(point.x, point.y, true);
                 if (childHitTestResult) {
+                    if(!touchChildren) {
+                        return this;
+                    }
+
                     if (childHitTestResult._touchEnabled && touchChildren) {
                         return childHitTestResult;
                     }
-                    else if (this._touchEnabled) {
-                        return this;
-                    }
-                    if (result == null) {
-                        result = childHitTestResult;
-                    }
+
+                    result = this;
                 }
             }
-            if(!result){
-                    return super.hitTest(x,y,ignoreTouchEnabled);
+            if(result) {
+                return result;
             }
-            return result;
+            else if (this._texture_to_render || this["graphics"]) {
+                return super.hitTest(x, y, ignoreTouchEnabled);
+            }
+            return null;
         }
 
 
-        public _onAddToStage() {
+        public _onAddToStage():void {
             super._onAddToStage();
-            var length:number = this.numChildren;
+            var length = this._children.length;
             for (var i = 0; i < length; i++) {
                 var child:DisplayObject = this._children[i];
                 child._onAddToStage();
             }
         }
 
-        public _onRemoveFromStage() {
+        public _onRemoveFromStage():void {
             super._onRemoveFromStage();
-            var length:number = this.numChildren;
+            var length = this._children.length;
             for (var i = 0; i < length; i++) {
                 var child:DisplayObject = this._children[i];
                 child._onRemoveFromStage();
@@ -457,9 +458,9 @@ module egret {
          */
         public getChildByName(name:string):DisplayObject{
             var locChildren = this._children;
-            var count:number = this.numChildren;
+            var length = locChildren.length;
             var displayObject:DisplayObject;
-            for(var i:number = 0 ; i < count ; i++ ){
+            for(var i:number = 0 ; i < length ; i++ ){
                 displayObject = locChildren[i];
                 if(displayObject.name == name){
                     return displayObject;

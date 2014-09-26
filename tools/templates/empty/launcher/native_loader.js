@@ -14,7 +14,7 @@ egret_native.egtMain = function () {
     require("bin-debug/lib/egret_file_list.js");
     require("bin-debug/src/game_file_list.js");
     for (var key in egret_file_list) {
-        var src = "libs/core/" + egret_file_list[key];
+        var src = "libs/" + egret_file_list[key];
         require(src);
 
     }
@@ -38,7 +38,7 @@ egret_native.egtMain = function () {
 
     context.run();
 
-    var document_class = "GameApp";
+    var document_class = "Main";
     var rootClass;
     if(document_class){
         rootClass = egret.getDefinitionByName(document_class);
